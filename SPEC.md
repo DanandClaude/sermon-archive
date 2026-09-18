@@ -212,6 +212,7 @@ Sign-in, invites, roles, permission tests. Upload screen with resumable uploads,
 **Phase 2 — Cleanup and transcription**
 Python worker; cleanup chain; transcription with word timings; peaks JSON; SRT/VTT; job retries and failure UI.
 *Done when:* a real tape side becomes cleaned audio + transcript, and failures can be retried from the UI.
+*Built as (2026-09-18):* the worker claims jobs from a Postgres `jobs` table (the app enqueues in the same transaction as the upload finishing) rather than pg-boss. Transcription is faster-whisper on the worker's machine, so the spec's manual chunking (only needed for hosted APIs) is not used. SRT, VTT and text are rendered from the stored word timings by one TypeScript function instead of being stored. Finished transcripts leave a sermon at `analyzing`; Phase 3 picks them up. A worker heartbeat lets the app say when processing is paused. Cleanup defaults are untuned until real tapes are available; `sermon_worker.experiments` compares variants. Not built: resuming a transcription interrupted part way, and a container image.
 
 **Phase 3 — Analysis and review**
 Title/categories/summary via LLM; scripture detection (parser + LLM + validation); naming; the full Review screen including passage add/edit/delete and player syncing.

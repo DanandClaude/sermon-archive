@@ -42,7 +42,8 @@ Needs Node 24 (`.nvmrc`) and local Postgres 16. No Docker or Redis.
 - Tests: `npm test` (rebuilds `sermon_archive_test` from the migrations and refuses any database not named `*_test`); `npm run test:watch`
 - Checks: `npm run lint`, `npm run typecheck`, `npm run format:check`; CI runs these plus `npm run build`
 - Migrations: edit `src/db/schema.ts`, run `npm run db:generate`, commit `drizzle/`, then `npm run db:migrate`
-- Worker: not built yet (Phase 2)
+- Worker (Python, `worker/`): `npm run worker:install` once, then `npm run worker` (or `npm run worker:once`); `npm run worker:test`, `npm run worker:lint`. See `worker/README.md`. It never downloads a model by itself: `worker/run.sh -m sermon_worker.fetch_model large-v3`
+- Without a model, run the worker with `TRANSCRIBER=fake` to try the whole pipeline (development only)
 
 ## Conventions
 - Next.js 16: `middleware` is now `proxy`, and some APIs differ from older versions. Read `node_modules/next/dist/docs/` before using one.
@@ -54,4 +55,19 @@ Needs Node 24 (`.nvmrc`) and local Postgres 16. No Docker or Redis.
 - Sermon status changes go through `transitionSermon` and the table in `src/lib/sermon-status.ts`.
 - Uploads: the browser sends parts straight to storage using presigned URLs (`src/lib/uploads/`). Uploaded originals are never overwritten or deleted.
 - External services go through `src/adapters/` (mail, upload storage, Drive, YouTube, podcast). Development and tests get in-memory or local-disk fakes (`.data/` is git-ignored); `ADAPTER_MODE=real` throws outside production.
+- Processing: the app enqueues rows in `jobs`; the Python worker claims them (`FOR UPDATE SKIP LOCKED`), cleans and transcribes, and writes new assets. The sermon status table is shared: `shared/pipeline.json` is read by both sides and a test fails if it differs from `src/lib/sermon-status.ts`. Change it in both places.
+- Transcripts live in `transcripts` (word-timed, versioned). SRT, VTT and text are rendered on demand by `src/lib/transcripts/render.ts`; don't store them.
+- Failures are shown to contributors in plain language (`sermons.last_error`); raw error text stays in `jobs` and is visible to admins only.
+- Transcription is in-house (faster-whisper). Don't add a hosted transcription service; the owner chose not to send audio to third parties.
+- The worker's Python package is found through `PYTHONPATH` (`worker/run.sh`, pytest config), not the editable-install `.pth`, which macOS can hide.
 - `next dev` may re-add a Next.js agent-rules block to this file. It is generic guidance and safe to keep or remove.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

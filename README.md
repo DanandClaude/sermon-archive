@@ -8,7 +8,8 @@ Start with [`CLAUDE.md`](CLAUDE.md) for commands and conventions, and [`SPEC.md`
 
 - Phase 0 (scaffold): done.
 - Phase 1 (sign-in, roles, uploads): done. Admins add people, everyone signs in with an emailed link, contributors upload batches of tapes with per-tape details, and the library lists what each person is allowed to see.
-- Cleanup, transcription, review, filing and publishing come in later phases (SPEC §14). Uploaded sermons wait in the queue as "Waiting to process" until Phase 2.
+- Phase 2 (cleanup and transcription): done. A Python worker cleans each tape's audio and transcribes it in-house with word timings; the queue shows real progress and failures with a Retry button. See [`worker/README.md`](worker/README.md).
+- Review, filing and publishing come in later phases (SPEC §14). A finished transcript waits as "Transcript ready" until Phase 3.
 
 ## Setting up storage and email for a real deployment
 
@@ -23,10 +24,13 @@ Set `NODE_ENV=production`, `ADAPTER_MODE=real` and the variables in `.env.exampl
 
 **Email.** Sign-in links are sent over SMTP (`SMTP_URL`, `MAIL_FROM`). Any provider works (Postmark, Resend, Amazon SES, a Google Workspace relay). Set up SPF and DKIM for the sending domain, or links may land in spam.
 
+**Audio worker.** Run it on a machine that stays on (`worker/README.md`). It needs the same database and storage settings as the app, plus ffmpeg and the Whisper model.
+
 **First admin.** Run `npm run admin:create -- --email you@example.org --name "Your Name"` on the server. It prints a one-time sign-in link.
 
 ## Where sermon content goes
 
 - The app's own database and upload bucket (yours).
 - Email addresses and names are used to send sign-in links through your SMTP provider. Sermon content is never emailed.
-- No sermon content is sent to any third party yet. Each of these will be listed here when it is added: transcription (Phase 2), the Anthropic API for analysis (Phase 3), Google Drive or another storage provider (Phase 4), and YouTube or a podcast host (Phase 5).
+- Transcription runs on your own machine. No audio is sent to a transcription service.
+- No sermon content is sent to any third party yet. Each of these will be listed here when it is added: the Anthropic API for analysis (Phase 3), Google Drive or another storage provider (Phase 4), and YouTube or a podcast host (Phase 5).

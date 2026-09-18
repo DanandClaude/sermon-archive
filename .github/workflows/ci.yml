@@ -40,3 +40,37 @@ jobs:
           test -z "$(git status --porcelain drizzle)" || { git status --porcelain drizzle; echo "Schema changed without a migration. Run npm run db:generate and commit drizzle/."; exit 1; }
       - run: npm test
       - run: npm run build
+
+  worker:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      WORKER_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/sermon_archive_worker_test
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: worker/.python-version
+          cache: pip
+          cache-dependency-path: worker/pyproject.toml
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests
+      - run: ruff format --check src tests
+      - run: pytest
