@@ -7,7 +7,13 @@ export type ServerQueueItem = {
   filename: string;
   status: string;
   sizeBytes: number | null;
+  progress?: number | null;
+  failedStage?: string | null;
+  lastError?: string | null;
 };
+
+/** What the server says about the audio worker. */
+export type WorkerState = { online: boolean; lastSeenAt: string | null };
 
 /** An upload started in this browser tab. */
 export type LocalUpload = { name: string; state: ItemState };
@@ -26,14 +32,17 @@ export type RowStatus =
 
 export type QueueRow = {
   key: string;
+  sermonId?: string;
   filename: string;
   status: RowStatus;
-  /** 0-100 while uploading from this tab. */
+  /** 0-100 for the stage in progress. */
   percent?: number;
   /** Set when this tab is running the upload and can cancel it. */
   localId?: string;
   uploadId?: string | null;
   error?: string;
+  /** For a failed sermon: which stage to retry. */
+  failedStage?: string;
   dismissible: boolean;
 };
 
@@ -60,6 +69,7 @@ export function mergeQueue(
     if (ACTIVE_LOCAL.has(state.status)) {
       rows.push({
         key: `local:${localId}`,
+        sermonId: state.sermonId,
         filename: name,
         status: 'uploading',
         percent: percentOf(state),
@@ -92,6 +102,7 @@ export function mergeQueue(
       // Finished here but not in the server's list yet: show it as uploaded rather than blinking away.
       rows.push({
         key: `sermon:${state.sermonId}`,
+        sermonId: state.sermonId,
         filename: name,
         status: 'uploaded',
         localId,
@@ -107,8 +118,12 @@ export function mergeQueue(
       item.status === 'uploading' ? 'interrupted' : (item.status as RowStatus);
     rows.push({
       key: `sermon:${item.sermonId}`,
+      sermonId: item.sermonId,
       filename: item.filename,
       status,
+      percent: item.progress ?? undefined,
+      error: status === 'failed' ? (item.lastError ?? undefined) : undefined,
+      failedStage: item.failedStage ?? undefined,
       uploadId: item.uploadId,
       dismissible: false,
     });
@@ -117,6 +132,8 @@ export function mergeQueue(
 }
 
 export const STAGE_COUNT = 5;
+/** Statuses whose current segment fills as the stage progresses. */
+const PARTIAL = new Set<RowStatus>(['uploading', 'cleaning', 'transcribing']);
 const STAGE_INDEX: Partial<Record<RowStatus, number>> = {
   uploading: 0,
   interrupted: 0,
@@ -136,7 +153,7 @@ export function segmentFills(status: RowStatus, percent = 0): number[] {
   if (index === undefined) return Array(STAGE_COUNT).fill(0);
   return Array.from({ length: STAGE_COUNT }, (_, i) => {
     if (i < index) return 1;
-    if (i === index) return status === 'uploading' ? percent / 100 : 0;
+    if (i === index) return PARTIAL.has(status) ? percent / 100 : 0;
     return 0;
   });
 }
@@ -147,12 +164,19 @@ export const STATUS_LABEL: Record<RowStatus, string> = {
   uploaded: 'Waiting to process',
   cleaning: 'Cleaning audio',
   transcribing: 'Transcribing',
-  analyzing: 'Naming & summarizing',
+  analyzing: 'Transcript ready',
   needs_review: 'Ready to review',
   failed: 'Needs attention',
   error: 'Upload failed',
   cancelled: 'Cancelled',
 };
+
+const WAITING_ON_WORKER = new Set<RowStatus>(['uploaded', 'cleaning', 'transcribing']);
+
+/** True when something is waiting for the audio worker and the worker isn't running. */
+export function workerIsBlocking(rows: QueueRow[], worker: WorkerState | null): boolean {
+  return worker !== null && !worker.online && rows.some((r) => WAITING_ON_WORKER.has(r.status));
+}
 
 /** Only the two counts the mockup's header shows. */
 export function queueCounts(rows: QueueRow[]): { processing: number; ready: number } {

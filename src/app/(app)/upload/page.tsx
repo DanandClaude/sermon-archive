@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/shell/PageHeader';
 import { Icon } from '@/components/icons';
 import { getDb } from '@/db/client';
 import { requireCapability } from '@/lib/auth/guard';
+import { getWorkerStatus } from '@/lib/jobs';
 import { listQueue } from '@/lib/uploads/service';
 import { getSettings } from '@/lib/settings';
 import { UploadClient } from './UploadClient';
@@ -11,7 +12,11 @@ export const metadata = { title: 'Upload tapes' };
 export default async function UploadPage() {
   const user = await requireCapability('sermon.upload');
   const db = getDb();
-  const [{ defaultSpeaker }, queue] = await Promise.all([getSettings(db), listQueue(db, user)]);
+  const [{ defaultSpeaker }, queue, worker] = await Promise.all([
+    getSettings(db),
+    listQueue(db, user),
+    getWorkerStatus(db),
+  ]);
   return (
     <>
       <PageHeader
@@ -28,13 +33,31 @@ export default async function UploadPage() {
       />
       <UploadClient
         defaultSpeaker={defaultSpeaker}
-        initialQueue={queue.map(({ sermonId, uploadId, filename, status, sizeBytes }) => ({
-          sermonId,
-          uploadId,
-          filename,
-          status,
-          sizeBytes,
-        }))}
+        initialQueue={queue.map(
+          ({
+            sermonId,
+            uploadId,
+            filename,
+            status,
+            sizeBytes,
+            progress,
+            failedStage,
+            lastError,
+          }) => ({
+            sermonId,
+            uploadId,
+            filename,
+            status,
+            sizeBytes,
+            progress,
+            failedStage,
+            lastError,
+          }),
+        )}
+        initialWorker={{
+          online: worker.online,
+          lastSeenAt: worker.lastSeenAt?.toISOString() ?? null,
+        }}
       />
     </>
   );

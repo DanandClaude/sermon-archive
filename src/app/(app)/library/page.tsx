@@ -164,13 +164,18 @@ export default async function LibraryPage({
                   return (
                     <tr key={row.id} className="border-b border-chip last:border-b-0">
                       <td className="max-w-[360px] px-6 py-4 align-top">
-                        {row.title ? (
-                          <div className="font-semibold">{row.title}</div>
-                        ) : (
-                          <div className="break-all font-mono text-[13px] font-medium">
-                            {row.filename ?? 'Untitled tape'}
-                          </div>
-                        )}
+                        <Link
+                          href={`/sermons/${row.id}`}
+                          className="text-ink underline decoration-line-strong underline-offset-2"
+                        >
+                          {row.title ? (
+                            <span className="font-semibold">{row.title}</span>
+                          ) : (
+                            <span className="break-all font-mono text-[13px] font-medium">
+                              {row.filename ?? 'Untitled tape'}
+                            </span>
+                          )}
+                        </Link>
                         {detail ? (
                           <div className="mt-0.5 text-[13px] text-muted">{detail}</div>
                         ) : null}

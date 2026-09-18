@@ -11,6 +11,7 @@ import {
   formatBytes,
   type LocalUpload,
   type ServerQueueItem,
+  type WorkerState,
 } from '@/lib/uploads/queue';
 import { MAX_FILE_BYTES } from '@/lib/uploads/limits';
 import { EXTENSION_FORMAT, extensionOf } from '@/lib/uploads/sniff';
@@ -27,9 +28,11 @@ const key = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
 export function UploadClient({
   defaultSpeaker,
   initialQueue,
+  initialWorker,
 }: {
   defaultSpeaker: string;
   initialQueue: ServerQueueItem[];
+  initialWorker: WorkerState;
 }) {
   const [defaults, setDefaults] = useState<Defaults>({
     recordedOn: '',
@@ -41,6 +44,7 @@ export function UploadClient({
   const [staged, setStaged] = useState<Staged[]>([]);
   const [local, setLocal] = useState<Record<string, LocalUpload>>({});
   const [serverItems, setServerItems] = useState<ServerQueueItem[]>(initialQueue);
+  const [worker, setWorker] = useState<WorkerState>(initialWorker);
   const [notices, setNotices] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
   const router = useRouter();
@@ -59,7 +63,11 @@ export function UploadClient({
     try {
       const res = await fetch('/api/queue', { credentials: 'same-origin' });
       if (res.status === 401) return router.push('/sign-in?next=/upload');
-      if (res.ok) setServerItems((await res.json()).items);
+      if (res.ok) {
+        const data = await res.json();
+        setServerItems(data.items);
+        setWorker(data.worker);
+      }
     } catch {
       // Offline for a moment; the next poll will catch up.
     }
@@ -157,6 +165,20 @@ export function UploadClient({
     setStaged([]);
     setNotices([]);
     void manager.run(items).then(refreshQueue);
+  };
+
+  const retry = async (row: { sermonId?: string }) => {
+    if (!row.sermonId) return;
+    try {
+      const res = await fetch(`/api/sermons/${row.sermonId}/retry`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) setNotices([(await res.json()).error ?? 'That could not be retried.']);
+    } catch {
+      setNotices(['The connection dropped. Try again in a moment.']);
+    }
+    void refreshQueue();
   };
 
   const dismiss = (localId: string) =>
@@ -365,6 +387,8 @@ export function UploadClient({
 
       <QueuePanel
         rows={rows}
+        worker={worker}
+        onRetry={retry}
         onCancel={(row) =>
           row.localId &&
           void manager.cancel(row.localId, local[row.localId]?.state.uploadId).then(refreshQueue)

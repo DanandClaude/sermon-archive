@@ -1,12 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { Icon } from '@/components/icons';
+import { timeAgo } from '@/lib/format';
 import {
   queueCounts,
   segmentFills,
   STATUS_LABEL,
+  workerIsBlocking,
   type QueueRow,
   type RowStatus,
+  type WorkerState,
 } from '@/lib/uploads/queue';
 
 const CHIP: Record<RowStatus, string> = {
@@ -21,18 +25,24 @@ const CHIP: Record<RowStatus, string> = {
   error: 'bg-[#f8e6e2] text-danger',
   cancelled: 'bg-chip text-muted',
 };
-const BUSY = new Set<RowStatus>(['uploading', 'cleaning', 'transcribing', 'analyzing']);
+const BUSY = new Set<RowStatus>(['uploading', 'cleaning', 'transcribing']);
+const NO_LINK = new Set<RowStatus>(['uploading', 'interrupted', 'error', 'cancelled']);
 
 function detail(row: QueueRow): string | undefined {
+  const pct = row.percent === undefined ? '' : ` · ${row.percent}%`;
   switch (row.status) {
     case 'uploading':
-      return `Uploading · ${row.percent ?? 0}%`;
+      return `Uploading${pct}`;
     case 'interrupted':
       return 'Interrupted. Add this file again and it will carry on where it stopped.';
     case 'uploaded':
-      return 'Uploaded. Processing starts when the audio worker is running.';
+      return 'Uploaded. Waiting to be processed.';
     case 'cleaning':
-      return 'Reducing hiss and hum';
+      return `Reducing hiss and hum${pct}`;
+    case 'transcribing':
+      return `Transcribing${pct}`;
+    case 'analyzing':
+      return 'The transcript is ready. Naming and summarizing come next.';
     case 'failed':
       return 'Something went wrong while processing.';
     default:
@@ -42,14 +52,19 @@ function detail(row: QueueRow): string | undefined {
 
 export function QueuePanel({
   rows,
+  worker,
   onCancel,
   onDismiss,
+  onRetry,
 }: {
   rows: QueueRow[];
+  worker: WorkerState | null;
   onCancel: (row: QueueRow) => void;
   onDismiss: (row: QueueRow) => void;
+  onRetry: (row: QueueRow) => void;
 }) {
   const { processing, ready } = queueCounts(rows);
+  const paused = workerIsBlocking(rows, worker);
   return (
     <aside
       aria-label="Processing queue"
@@ -76,6 +91,17 @@ export function QueuePanel({
         </div>
       </div>
 
+      {paused ? (
+        <div
+          role="status"
+          className="border-b border-chip bg-amber-tint px-6 py-3.5 text-[13px] leading-[1.45] text-amber-text"
+        >
+          <strong>Processing is paused.</strong> The audio worker isn’t running
+          {worker?.lastSeenAt ? ` (last seen ${timeAgo(new Date(worker.lastSeenAt))})` : ''}. Your
+          tapes are safe and will carry on when it starts.
+        </div>
+      ) : null}
+
       {rows.length === 0 ? (
         <p className="m-0 px-6 py-8 text-center text-[14px] text-muted">
           Nothing in the queue yet. Files you upload show up here.
@@ -91,9 +117,18 @@ export function QueuePanel({
                 className="flex flex-col gap-2.5 border-b border-chip px-6 py-[18px] last:border-b-0"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 break-all font-mono text-[13px] font-medium">
-                    {row.filename}
-                  </span>
+                  {row.sermonId && !NO_LINK.has(row.status) ? (
+                    <Link
+                      href={`/sermons/${row.sermonId}`}
+                      className="min-w-0 break-all font-mono text-[13px] font-medium text-ink underline decoration-line-strong underline-offset-2"
+                    >
+                      {row.filename}
+                    </Link>
+                  ) : (
+                    <span className="min-w-0 break-all font-mono text-[13px] font-medium">
+                      {row.filename}
+                    </span>
+                  )}
                   <span
                     className={`inline-flex h-[26px] flex-none items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-semibold ${CHIP[row.status]}`}
                   >
@@ -138,6 +173,15 @@ export function QueuePanel({
                     className="inline-flex h-11 items-center self-start text-[13.5px] font-semibold text-muted"
                   >
                     Cancel<span className="sr-only"> upload of {row.filename}</span>
+                  </button>
+                ) : null}
+                {row.status === 'failed' && row.sermonId && row.failedStage !== 'analyzing' ? (
+                  <button
+                    type="button"
+                    onClick={() => onRetry(row)}
+                    className="inline-flex h-11 items-center self-start rounded-[10px] border border-line-strong bg-surface px-4 text-[13.5px] font-semibold text-ink"
+                  >
+                    Retry<span className="sr-only"> {row.filename}</span>
                   </button>
                 ) : null}
                 {row.dismissible ? (

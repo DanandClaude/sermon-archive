@@ -6,6 +6,7 @@ import {
   percentOf,
   queueCounts,
   segmentFills,
+  workerIsBlocking,
   type LocalUpload,
   type ServerQueueItem,
 } from './queue';
@@ -140,4 +141,72 @@ describe('formatBytes', () => {
     [65 * 1024 * 1024, '65 MB'],
     [1.5 * 1024 * 1024 * 1024, '1.5 GB'],
   ])('%d → %s', (n, text) => expect(formatBytes(n)).toBe(text));
+});
+
+describe('processing stages from the server', () => {
+  const withProgress = (id: string, status: string, progress: number | null, extra = {}) => ({
+    ...server(id, status),
+    progress,
+    ...extra,
+  });
+
+  it('shows the running stage’s own progress', () => {
+    const [row] = mergeQueue([withProgress('s1', 'transcribing', 64)], {});
+    expect(row).toMatchObject({ status: 'transcribing', percent: 64, sermonId: 's1' });
+  });
+
+  it('fills the current segment as cleanup and transcription progress', () => {
+    expect(segmentFills('cleaning', 31)).toEqual([1, 0.31, 0, 0, 0]);
+    expect(segmentFills('transcribing', 64)).toEqual([1, 1, 0.64, 0, 0]);
+    expect(segmentFills('analyzing', 0)).toEqual([1, 1, 1, 0, 0]);
+  });
+
+  it('carries a failed sermon’s reason so the row can show it', () => {
+    const [row] = mergeQueue(
+      [
+        withProgress('s1', 'failed', null, {
+          failedStage: 'transcribing',
+          lastError: 'No speech was detected in this recording.',
+        }),
+      ],
+      {},
+    );
+    expect(row).toMatchObject({
+      status: 'failed',
+      error: 'No speech was detected in this recording.',
+      sermonId: 's1',
+    });
+  });
+
+  it('calls a finished transcript ready, not still processing', () => {
+    const rows = mergeQueue(
+      [withProgress('a', 'analyzing', null), withProgress('b', 'cleaning', 10)],
+      {},
+    );
+    expect(queueCounts(rows)).toEqual({ processing: 2, ready: 0 });
+    expect(rows[0].status).toBe('analyzing');
+  });
+});
+
+describe('workerIsBlocking', () => {
+  const offline = { online: false, lastSeenAt: null };
+  const online = { online: true, lastSeenAt: '2026-01-01T00:00:00Z' };
+  const waiting = mergeQueue([server('a', 'uploaded')], {});
+
+  it('is true when something is waiting and the worker is not running', () => {
+    expect(workerIsBlocking(waiting, offline)).toBe(true);
+    expect(workerIsBlocking(mergeQueue([server('a', 'transcribing')], {}), offline)).toBe(true);
+  });
+
+  it('is false when the worker is running, unknown, or nothing needs it', () => {
+    expect(workerIsBlocking(waiting, online)).toBe(false);
+    expect(workerIsBlocking(waiting, null)).toBe(false);
+    expect(
+      workerIsBlocking(
+        mergeQueue([server('a', 'needs_review'), server('b', 'failed')], {}),
+        offline,
+      ),
+    ).toBe(false);
+    expect(workerIsBlocking([], offline)).toBe(false);
+  });
 });

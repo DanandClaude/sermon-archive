@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { sermons, uploads } from '@/db/schema';
-import { formatRecordedOn } from '@/lib/format';
+import { formatRecordedOn, timeAgo } from '@/lib/format';
 import type { SermonStatus } from '@/lib/sermon-status';
 import { insertUser, openTestDb, resetTables } from '../../../tests/support/db';
 import { countNeedsReview, likePattern, listLibrary, PAGE_SIZE } from './library';
@@ -254,4 +254,23 @@ describe('formatRecordedOn', () => {
     [null, null],
     ['garbage', null],
   ])('%s → %s', (iso, text) => expect(formatRecordedOn(iso)).toBe(text));
+});
+
+describe('timeAgo', () => {
+  const now = new Date('2026-01-10T12:00:00Z');
+  it.each([
+    [0, 'just now'],
+    [59, 'just now'],
+    [60, '1 minute ago'],
+    [300, '5 minutes ago'],
+    [3600, '1 hour ago'],
+    [3 * 3600, '3 hours ago'],
+    [86400, '1 day ago'],
+    [3 * 86400, '3 days ago'],
+  ])('%d seconds → %s', (secs, text) => {
+    expect(timeAgo(new Date(now.getTime() - secs * 1000), now)).toBe(text);
+  });
+  it('never says the future', () => {
+    expect(timeAgo(new Date(now.getTime() + 5000), now)).toBe('just now');
+  });
 });
