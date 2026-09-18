@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, desc, eq, isNull, notInArray } from 'drizzle-orm';
+import { and, desc, eq, isNull, notInArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   InvalidPartsError,
@@ -8,7 +8,8 @@ import {
   type UploadStore,
 } from '@/adapters/uploads/types';
 import type { Db } from '@/db/client';
-import { audioAssets, auditLog, sermons, uploads, type Upload } from '@/db/schema';
+import { audioAssets, auditLog, jobs, sermons, uploads, type Upload } from '@/db/schema';
+import { enqueueJob } from '@/lib/jobs';
 import { assertCan, type Actor } from '@/lib/permissions';
 import { transitionSermon } from '@/lib/sermons/transition';
 import { MAX_FILE_BYTES } from './limits';
@@ -350,6 +351,8 @@ export async function completeUpload(
     if (!(await transitionSermon(tx, upload.sermonId, 'uploading', 'uploaded'))) {
       throw new UploadError('not_found', 'Upload not found.');
     }
+    // Queued in the same transaction, so an uploaded sermon can never be left without its job.
+    await enqueueJob(tx, upload.sermonId, 'clean');
     await tx.insert(auditLog).values({
       actorId: actor.id,
       action: 'sermon.upload',
@@ -381,6 +384,11 @@ export type QueueItem = {
   status: string;
   sizeBytes: number | null;
   createdAt: Date;
+  /** 0-100 for the stage that is running now, if a job is running. */
+  progress: number | null;
+  /** For a failed sermon: the stage to retry, and what to tell the person. */
+  failedStage: string | null;
+  lastError: string | null;
 };
 
 /** The signed-in user's own sermons that are still moving through the pipeline. */
@@ -394,6 +402,13 @@ export async function listQueue(db: Db, actor: Actor, limit = 50): Promise<Queue
       status: sermons.status,
       sizeBytes: uploads.sizeBytes,
       createdAt: sermons.createdAt,
+      progress: sql<number | null>`(
+        select ${jobs.progress} from ${jobs}
+        where ${jobs.sermonId} = ${sermons.id} and ${jobs.state} = 'running'
+        order by ${jobs.createdAt} desc limit 1
+      )`,
+      failedStage: sermons.failedStage,
+      lastError: sermons.lastError,
     })
     .from(sermons)
     .leftJoin(uploads, eq(uploads.sermonId, sermons.id))

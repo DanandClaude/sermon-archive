@@ -4,6 +4,7 @@ import {
   assertCan,
   canApproveSermon,
   canEditSermon,
+  canRetrySermon,
   canViewSermon,
   can,
   CAPABILITY_ROLES,
@@ -135,4 +136,38 @@ describe('canApproveSermon (D1: contributors approve their own)', () => {
       }
     },
   );
+});
+
+describe('canRetrySermon', () => {
+  it('lets the uploader and admins retry a failed sermon', () => {
+    expect(
+      canRetrySermon({ ...me, role: 'contributor' }, { contributorId: 'me', status: 'failed' }),
+    ).toBe(true);
+    expect(
+      canRetrySermon({ ...me, role: 'admin' }, { contributorId: other, status: 'failed' }),
+    ).toBe(true);
+  });
+
+  it('refuses other contributors and viewers', () => {
+    expect(
+      canRetrySermon({ ...me, role: 'contributor' }, { contributorId: other, status: 'failed' }),
+    ).toBe(false);
+    expect(
+      canRetrySermon({ ...me, role: 'viewer' }, { contributorId: 'me', status: 'failed' }),
+    ).toBe(false);
+  });
+
+  it('refuses everyone for a sermon that has not failed, or was deleted', () => {
+    for (const status of SERMON_STATUSES.filter((s) => s !== 'failed')) {
+      for (const role of ROLES) {
+        expect(canRetrySermon({ ...me, role }, { contributorId: 'me', status })).toBe(false);
+      }
+    }
+    expect(
+      canRetrySermon(
+        { ...me, role: 'admin' },
+        { contributorId: 'me', status: 'failed', deleted: true },
+      ),
+    ).toBe(false);
+  });
 });

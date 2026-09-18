@@ -63,3 +63,13 @@ export function canApproveSermon(actor: Actor, sermon: SermonFacts): boolean {
   if (actor.role === 'admin') return true;
   return actor.role === 'contributor' && sermon.contributorId === actor.id;
 }
+
+/**
+ * A failed sermon can be retried by its uploader (it is still their draft) and by admins.
+ * Sermons that are not failed, and deleted ones, cannot be retried by anyone.
+ */
+export function canRetrySermon(actor: Actor, sermon: SermonFacts): boolean {
+  if (sermon.deleted || sermon.status !== 'failed') return false;
+  if (actor.role === 'admin') return true;
+  return actor.role === 'contributor' && sermon.contributorId === actor.id;
+}

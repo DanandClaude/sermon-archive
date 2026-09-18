@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeUploadStore } from '@/adapters/uploads/fake';
-import { audioAssets, auditLog, sermons, uploads } from '@/db/schema';
+import { audioAssets, auditLog, jobs, sermons, uploads } from '@/db/schema';
 import { ForbiddenError } from '@/lib/errors';
 import { insertUser, openTestDb, resetTables } from '../../../tests/support/db';
 import { putPart, tempStore, wavBytes } from '../../../tests/support/uploads';
@@ -243,6 +243,25 @@ describe('completeUpload', () => {
     expect(entry).toMatchObject({ actorId: user.id, entityId: sermonId });
   });
 
+  it('queues exactly one cleanup job for the audio worker', async () => {
+    const user = await insertUser(db, 'contributor');
+    const { uploadId, sermonId } = await startUpload(deps(), user, file());
+    await sendParts(user, uploadId, wavBytes(40));
+    await completeUpload(deps(), user, uploadId);
+    await completeUpload(deps(), user, uploadId);
+    expect(await db.select().from(jobs).where(eq(jobs.sermonId, sermonId))).toMatchObject([
+      { type: 'clean', state: 'queued' },
+    ]);
+  });
+
+  it('queues no job when the upload is incomplete or rejected', async () => {
+    const user = await insertUser(db, 'contributor');
+    const { uploadId } = await startUpload(deps(), user, file());
+    await sendParts(user, uploadId, wavBytes(40), [1]);
+    await expectUploadError(completeUpload(deps(), user, uploadId), 'incomplete');
+    expect(await db.select().from(jobs)).toHaveLength(0);
+  });
+
   it('is safe to call twice', async () => {
     const user = await insertUser(db, 'contributor');
     const { uploadId } = await startUpload(deps(), user, file());
@@ -373,6 +392,42 @@ describe('listQueue', () => {
     await db.update(sermons).set({ status: 'approved' }).where(eq(sermons.id, done.sermonId));
     const mine = await startUpload(deps(), me, file({ filename: 'mine.wav' }));
     expect((await listQueue(db, me)).map((q) => q.sermonId)).toEqual([mine.sermonId]);
+  });
+
+  it('reports the running stage’s progress and a failed sermon’s reason', async () => {
+    const me = await insertUser(db, 'contributor');
+    const running = await startUpload(deps(), me, file({ filename: 'running.wav' }));
+    await db
+      .update(sermons)
+      .set({ status: 'transcribing' })
+      .where(eq(sermons.id, running.sermonId));
+    await db
+      .insert(jobs)
+      .values({ sermonId: running.sermonId, type: 'transcribe', state: 'running', progress: 64 });
+    const failed = await startUpload(deps(), me, file({ filename: 'failed.wav' }));
+    await db
+      .update(sermons)
+      .set({
+        status: 'failed',
+        failedStage: 'transcribing',
+        lastError: 'No speech was detected in this recording.',
+      })
+      .where(eq(sermons.id, failed.sermonId));
+    await db
+      .insert(jobs)
+      .values({ sermonId: failed.sermonId, type: 'transcribe', state: 'failed', progress: 30 });
+    const byName = Object.fromEntries((await listQueue(db, me)).map((q) => [q.filename, q]));
+    expect(byName['running.wav']).toMatchObject({
+      status: 'transcribing',
+      progress: 64,
+      failedStage: null,
+    });
+    expect(byName['failed.wav']).toMatchObject({
+      status: 'failed',
+      progress: null,
+      failedStage: 'transcribing',
+      lastError: 'No speech was detected in this recording.',
+    });
   });
 
   it('is forbidden for viewers', async () => {
