@@ -37,6 +37,10 @@ worker/run.sh -m sermon_worker.fetch_model large-v3     # about 3 GB
 
 Then it is used automatically (`WHISPER_MODEL=large-v3`, `WHISPER_COMPUTE=int8`). Until then a transcription job fails with "The transcription model is not installed on the worker" and can be retried from the app once the model is there.
 
+**Which model files work.** The worker needs the CTranslate2 format that faster-whisper uses (a folder with `model.bin`). Models kept by other Whisper apps do not work: the MLX format (used by `mlx_whisper`) and the whisper.cpp `ggml-*.bin` format (used by apps like Vibe) are different files. If you already have `Systran/faster-whisper-medium` in `~/.cache/huggingface/hub`, set `WHISPER_MODEL=medium` and it is used with no download.
+
+**Measured speed** (Apple M5, 10 cores, CPU, int8, the `medium` model): about 3x real time on clear speech. A 45-minute tape side takes roughly 15 minutes. This was measured on a minute of clean synthetic speech, not a noisy cassette, so treat it as a best case. `large-v3` is larger and should be slower; it has not been measured here.
+
 To try the pipeline without a model, set `TRANSCRIBER=fake`. It writes canned text and is refused when `NODE_ENV=production`.
 
 ## Tuning the cleanup
@@ -78,7 +82,7 @@ npm run worker:test           # 119 tests: real ffmpeg, a real Postgres database
 npm run worker:lint
 ```
 
-Tests use a separate database ending in `_test`, built from the app's own migrations, and never need the Whisper model.
+Tests use a separate database ending in `_test`, built from the app's own migrations, and never need the Whisper model. One opt-in test runs a real model on generated speech: `WHISPER_TEST_MODEL=medium worker/run.sh -m pytest tests/test_real_model.py` (macOS only; it never downloads).
 
 ## Not built yet
 
