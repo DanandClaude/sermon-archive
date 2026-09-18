@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+/* Design tokens: SPEC §16, plus the few extra tints the mockups use. Light theme only. */
+@theme inline {
+  --color-ground: #f6f3ec;
+  --color-surface: #ffffff;
+  --color-paper: #fbf9f4;
+  --color-ink: #1e1d1a;
+  --color-muted: #5e584e;
+  --color-faint: #6f695e;
+  --color-line: #e5dfd3;
+  --color-line-strong: #d6cebe;
+  --color-chip: #efeae0;
+
+  --color-spruce: #1f5c52;
+  --color-spruce-tint: #e3efeb;
+  --color-spruce-mid: #eaf3ef;
+
+  --color-sidebar: #14201d;
+  --color-sidebar-active: #22322d;
+  --color-sidebar-card: #1b2b27;
+  --color-sidebar-ink: #e8e3d6;
+  --color-sidebar-body: #c9d1cb;
+  --color-sidebar-muted: #93a19a;
+
+  --color-amber: #e19a1f;
+  --color-amber-tint: #fbefd9;
+  --color-amber-text: #8a5200;
+  --color-amber-underline: #b26a00;
+
+  --color-danger: #a23b2a;
+
+  --font-heading: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-instrument-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-spruce);
+  outline-offset: 2px;
+}
+
+/* Spruce is too dark to see against the sidebar, so use the light ink there. */
+.on-sidebar :focus-visible {
+  outline-color: var(--color-sidebar-ink);
+}

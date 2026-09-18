@@ -1,0 +1,10 @@
+.next
+node_modules
+drizzle/meta
+package-lock.json
+design
+sermon-archive-handoff.zip
+next-env.d.ts
+CLAUDE.md
+SPEC.md
+.claude
