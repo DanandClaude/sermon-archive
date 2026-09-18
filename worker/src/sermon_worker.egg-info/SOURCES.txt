@@ -1,0 +1,15 @@
+pyproject.toml
+src/sermon_worker/__init__.py
+src/sermon_worker/clean.py
+src/sermon_worker/config.py
+src/sermon_worker/fetch_model.py
+src/sermon_worker/media.py
+src/sermon_worker/pipeline.py
+src/sermon_worker/store.py
+src/sermon_worker/transcribe.py
+src/sermon_worker.egg-info/PKG-INFO
+src/sermon_worker.egg-info/SOURCES.txt
+src/sermon_worker.egg-info/dependency_links.txt
+src/sermon_worker.egg-info/requires.txt
+src/sermon_worker.egg-info/top_level.txt
+tests/test_media_and_clean.py
