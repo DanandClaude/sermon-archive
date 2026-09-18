@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Upload cassette tapes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Instrument+Sans:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F6F3EC;}
+a{color:inherit;text-decoration:none;}
+button,input,select{font-family:inherit;}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1F5C52;outline-offset:2px;}
+</style>
+</helmet>
+<div style="width:1440px;height:960px;display:flex;background:#F6F3EC;color:#1E1D1A;font-family:'Instrument Sans',system-ui,sans-serif;font-size:14px;overflow:hidden;">
+
+<aside style="width:248px;flex:none;height:100%;box-sizing:border-box;background:#14201D;color:#E8E3D6;display:flex;flex-direction:column;padding:24px 16px;">
+<div style="display:flex;align-items:center;gap:12px;padding:0 8px 28px;">
+<div style="width:40px;height:40px;border-radius:12px;background:#E8E3D6;color:#14201D;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><circle cx="8.5" cy="11" r="2"/><circle cx="15.5" cy="11" r="2"/><path d="M7.5 19l1.5-3h6l1.5 3"/></svg></div>
+<div><div style="font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:19px;line-height:1.1;color:#FFFFFF;">Sermon Archive</div><div style="font-size:12.5px;color:#93A19A;margin-top:3px;">[Church Name]</div></div>
+</div>
+<nav aria-label="Main" style="display:flex;flex-direction:column;gap:4px;">
+<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#93A19A;padding:0 12px 8px;">Workspace</div>
+<a href="1-upload.dc.html" style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;background:#22322D;color:#FFFFFF;font-size:14.5px;font-weight:600;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>Upload tapes</a>
+<a href="2-library.dc.html" style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;color:#C9D1CB;font-size:14.5px;font-weight:500;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>Library</a>
+<a href="3-review-sermon.dc.html" style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;color:#C9D1CB;font-size:14.5px;font-weight:500;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>Needs review<span style="margin-left:auto;background:#E19A1F;color:#1E1D1A;border-radius:999px;font-size:12px;font-weight:700;padding:2px 8px;">2</span></a>
+</nav>
+<div style="flex:1;"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:#1B2B27;">
+<div style="width:36px;height:36px;border-radius:50%;background:#E8E3D6;color:#14201D;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">MT</div>
+<div><div style="font-size:14px;font-weight:600;color:#FFFFFF;">Marcy T.</div><div style="font-size:12px;color:#93A19A;">Contributor · Tulsa, OK</div></div>
+</div>
+</aside>
+
+<main style="flex:1;min-width:0;height:100%;box-sizing:border-box;padding:40px 44px 32px;display:flex;flex-direction:column;gap:28px;">
+<header style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;">
+<div>
+<h1 style="margin:0;font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:38px;line-height:1.1;letter-spacing:-0.01em;">Upload cassette tapes</h1>
+<p style="margin:10px 0 0;font-size:16px;line-height:1.5;color:#5E584E;max-width:600px;">Drop in your digitized recordings. We’ll clean up the audio, transcribe it, then name and file each sermon for you.</p>
+</div>
+<div style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:999px;background:#FFFFFF;border:1px solid #E5DFD3;font-size:13px;color:#5E584E;white-space:nowrap;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 01-.6-7.95A6 6 0 0117.7 9.5 4.3 4.3 0 0117 18z"/></svg>
+<span>Saves to the <strong style="color:#1E1D1A;">Sermon Archive</strong> shared drive</span>
+</div>
+</header>
+
+<div style="flex:1;min-height:0;display:flex;gap:28px;">
+
+<section aria-label="Upload" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:20px;">
+
+<div style="border:2px dashed #B9AE9A;border-radius:20px;background:#FBF9F4;padding:28px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;">
+<div style="width:56px;height:56px;border-radius:50%;background:#E3EFEB;color:#1F5C52;display:flex;align-items:center;justify-content:center;margin-bottom:6px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></div>
+<div style="font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:24px;">Drop tape recordings here</div>
+<div style="color:#5E584E;font-size:14.5px;">MP3, WAV, M4A, AIFF or FLAC · Side A and Side B can go up together</div>
+<div style="display:flex;gap:12px;margin-top:14px;">
+<button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border:0;border-radius:12px;background:#1F5C52;color:#FFFFFF;font-size:14.5px;font-weight:600;cursor:pointer;">Choose files</button>
+<button style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border:1px solid #D6CEBE;border-radius:12px;background:#FFFFFF;color:#1E1D1A;font-size:14.5px;font-weight:600;cursor:pointer;">Choose a folder</button>
+</div>
+</div>
+
+<section aria-labelledby="tape-details" style="background:#FFFFFF;border:1px solid #E5DFD3;border-radius:16px;padding:22px 24px;">
+<div style="display:flex;justify-content:space-between;align-items:baseline;">
+<h2 id="tape-details" style="margin:0;font-size:17px;font-weight:600;">Tape details <span style="font-weight:400;color:#5E584E;">· applies to this upload</span></h2>
+<span style="font-size:13px;color:#5E584E;">Optional</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;margin-top:16px;">
+<div><label for="tape-date" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Date on tape label</label><input id="tape-date" value="03/13/1988" style="width:100%;box-sizing:border-box;height:44px;border:1px solid #D6CEBE;border-radius:10px;padding:0 14px;font-size:15px;background:#FFFFFF;color:#1E1D1A;"></div>
+<div><label for="tape-scripture" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Scripture on label</label><input id="tape-scripture" value="Hebrews 13:17" style="width:100%;box-sizing:border-box;height:44px;border:1px solid #D6CEBE;border-radius:10px;padding:0 14px;font-size:15px;background:#FFFFFF;color:#1E1D1A;"></div>
+<div><label for="tape-speaker" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Speaker</label><input id="tape-speaker" value="[Pastor Name]" style="width:100%;box-sizing:border-box;height:44px;border:1px solid #D6CEBE;border-radius:10px;padding:0 14px;font-size:15px;background:#FFFFFF;color:#1E1D1A;"></div>
+<div><label for="tape-box" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Tape box or batch</label><input id="tape-box" value="Box 3" style="width:100%;box-sizing:border-box;height:44px;border:1px solid #D6CEBE;border-radius:10px;padding:0 14px;font-size:15px;background:#FFFFFF;color:#1E1D1A;"></div>
+</div>
+<p style="margin:14px 0 0;font-size:13px;color:#5E584E;">Leave anything blank and we’ll try to detect the date and scripture from the recording.</p>
+</section>
+
+<section aria-labelledby="after-upload" style="background:#FFFFFF;border:1px solid #E5DFD3;border-radius:16px;padding:22px 24px;">
+<h2 id="after-upload" style="margin:0 0 14px;font-size:17px;font-weight:600;">What happens after upload</h2>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;">
+<div style="display:flex;gap:12px;align-items:flex-start;"><input id="opt-clean" type="checkbox" checked style="width:20px;height:20px;margin:2px 0 0;accent-color:#1F5C52;flex:none;"><label for="opt-clean"><span style="display:block;font-size:14.5px;font-weight:600;">Clean up audio</span><span style="display:block;font-size:13px;color:#5E584E;line-height:1.45;margin-top:2px;">Reduce hiss and hum, and even out the volume.</span></label></div>
+<div style="display:flex;gap:12px;align-items:flex-start;"><input id="opt-transcribe" type="checkbox" checked style="width:20px;height:20px;margin:2px 0 0;accent-color:#1F5C52;flex:none;"><label for="opt-transcribe"><span style="display:block;font-size:14.5px;font-weight:600;">Transcribe</span><span style="display:block;font-size:13px;color:#5E584E;line-height:1.45;margin-top:2px;">Speaker profile: American English, Southern accent.</span></label></div>
+<div style="display:flex;gap:12px;align-items:flex-start;"><input id="opt-name" type="checkbox" checked style="width:20px;height:20px;margin:2px 0 0;accent-color:#1F5C52;flex:none;"><label for="opt-name"><span style="display:block;font-size:14.5px;font-weight:600;">Name, categorize &amp; summarize</span><span style="display:block;font-size:13px;color:#5E584E;line-height:1.45;margin-top:2px;">Names files YYYY-MM-DD_Book-Chapter-Verse_ShortTitle, adds tags and a short summary, and lists the Bible passages the pastor names, with timestamps.</span></label></div>
+<div style="display:flex;gap:12px;align-items:flex-start;"><input id="opt-file" type="checkbox" checked style="width:20px;height:20px;margin:2px 0 0;accent-color:#1F5C52;flex:none;"><label for="opt-file"><span style="display:block;font-size:14.5px;font-weight:600;">File &amp; back up</span><span style="display:block;font-size:13px;color:#5E584E;line-height:1.45;margin-top:2px;">Saves to the shared drive and the admin-only backup once you approve.</span></label></div>
+</div>
+</section>
+
+</section>
+
+<aside aria-label="Processing queue" style="width:420px;flex:none;background:#FFFFFF;border:1px solid #E5DFD3;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+<div style="padding:22px 24px 16px;border-bottom:1px solid #EFEAE0;">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+<h2 style="margin:0;font-size:17px;font-weight:600;">Processing queue</h2>
+<div style="display:flex;gap:6px;">
+<span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#FBEFD9;color:#8A5200;font-size:12.5px;font-weight:600;white-space:nowrap;">3 processing</span>
+<span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#E3EFEB;color:#1F5C52;font-size:12.5px;font-weight:600;white-space:nowrap;">1 ready</span>
+</div>
+</div>
+<div style="margin-top:8px;font-size:12.5px;color:#5E584E;">Upload → Clean up → Transcribe → Name &amp; summarize → Review</div>
+</div>
+
+<div style="flex:1;display:flex;flex-direction:column;">
+
+<div style="padding:18px 24px;border-bottom:1px solid #EFEAE0;display:flex;flex-direction:column;gap:10px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+<span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:500;">Tape14_SideA.wav</span>
+<span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#E3EFEB;color:#1F5C52;font-size:12.5px;font-weight:600;white-space:nowrap;">Ready to review</span>
+</div>
+<div style="display:flex;gap:4px;">
+<div style="flex:1;height:6px;border-radius:3px;background:#1F5C52;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#1F5C52;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#1F5C52;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#1F5C52;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+</div>
+<div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#1F5C52;background:#F1F7F4;border-radius:8px;padding:8px 10px;word-break:break-all;">1988-03-13_Hebrews-13-17_Submitting-to-Leaders</div>
+<a href="3-review-sermon.dc.html" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:44px;color:#1F5C52;font-size:14px;font-weight:600;">Review &amp; approve<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+</div>
+
+<div style="padding:18px 24px;border-bottom:1px solid #EFEAE0;display:flex;flex-direction:column;gap:10px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+<span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:500;">Tape14_SideB.wav</span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#FBEFD9;color:#8A5200;font-size:12.5px;font-weight:600;white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:#E19A1F;"></span>Transcribing</span>
+</div>
+<div style="display:flex;gap:4px;">
+<div style="flex:1;height:6px;border-radius:3px;background:#1F5C52;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#1F5C52;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;overflow:hidden;"><div style="width:64%;height:100%;background:#E19A1F;"></div></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+</div>
+<div style="font-size:12.5px;color:#5E584E;">Transcribing · 64%</div>
+</div>
+
+<div style="padding:18px 24px;border-bottom:1px solid #EFEAE0;display:flex;flex-direction:column;gap:10px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+<span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:500;">Tape15_SideA.wav</span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#FBEFD9;color:#8A5200;font-size:12.5px;font-weight:600;white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:#E19A1F;"></span>Cleaning audio</span>
+</div>
+<div style="display:flex;gap:4px;">
+<div style="flex:1;height:6px;border-radius:3px;background:#1F5C52;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;overflow:hidden;"><div style="width:31%;height:100%;background:#E19A1F;"></div></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+</div>
+<div style="font-size:12.5px;color:#5E584E;">Reducing hiss and hum · 31%</div>
+</div>
+
+<div style="padding:18px 24px;display:flex;flex-direction:column;gap:10px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+<span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:500;">Tape15_SideB.wav</span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#FBEFD9;color:#8A5200;font-size:12.5px;font-weight:600;white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:#E19A1F;"></span>Uploading</span>
+</div>
+<div style="display:flex;gap:4px;">
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;overflow:hidden;"><div style="width:82%;height:100%;background:#E19A1F;"></div></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+<div style="flex:1;height:6px;border-radius:3px;background:#E5DFD3;"></div>
+</div>
+<div style="font-size:12.5px;color:#5E584E;">Uploading · 82%</div>
+</div>
+
+</div>
+
+<div style="display:flex;gap:10px;align-items:flex-start;padding:16px 24px;background:#FBF9F4;border-top:1px solid #EFEAE0;font-size:13px;line-height:1.45;color:#5E584E;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px;"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+<span>Nothing goes public from here. Only admins can send sermons to YouTube or a podcast feed.</span>
+</div>
+</aside>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

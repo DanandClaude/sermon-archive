@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sermon library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Instrument+Sans:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F6F3EC;}
+a{color:inherit;text-decoration:none;}
+button,input,select{font-family:inherit;}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1F5C52;outline-offset:2px;}
+</style>
+</helmet>
+<div style="width:1440px;height:1080px;display:flex;background:#F6F3EC;color:#1E1D1A;font-family:'Instrument Sans',system-ui,sans-serif;font-size:14px;overflow:hidden;">
+
+<aside style="width:248px;flex:none;height:100%;box-sizing:border-box;background:#14201D;color:#E8E3D6;display:flex;flex-direction:column;padding:24px 16px;">
+<div style="display:flex;align-items:center;gap:12px;padding:0 8px 28px;">
+<div style="width:40px;height:40px;border-radius:12px;background:#E8E3D6;color:#14201D;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><circle cx="8.5" cy="11" r="2"/><circle cx="15.5" cy="11" r="2"/><path d="M7.5 19l1.5-3h6l1.5 3"/></svg></div>
+<div><div style="font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:19px;line-height:1.1;color:#FFFFFF;">Sermon Archive</div><div style="font-size:12.5px;color:#93A19A;margin-top:3px;">[Church Name]</div></div>
+</div>
+<nav aria-label="Main" style="display:flex;flex-direction:column;gap:4px;">
+<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#93A19A;padding:0 12px 8px;">Workspace</div>
+<a href="1-upload.dc.html" style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;color:#C9D1CB;font-size:14.5px;font-weight:500;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>Upload tapes</a>
+<a href="2-library.dc.html" style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;background:#22322D;color:#FFFFFF;font-size:14.5px;font-weight:600;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>Library</a>
+<a href="3-review-sermon.dc.html" style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;color:#C9D1CB;font-size:14.5px;font-weight:500;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>Needs review<span style="margin-left:auto;background:#E19A1F;color:#1E1D1A;border-radius:999px;font-size:12px;font-weight:700;padding:2px 8px;">2</span></a>
+</nav>
+<div style="flex:1;"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:#1B2B27;">
+<div style="width:36px;height:36px;border-radius:50%;background:#E8E3D6;color:#14201D;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">MT</div>
+<div><div style="font-size:14px;font-weight:600;color:#FFFFFF;">Marcy T.</div><div style="font-size:12px;color:#93A19A;">Contributor · Tulsa, OK</div></div>
+</div>
+</aside>
+
+<main style="flex:1;min-width:0;height:100%;box-sizing:border-box;padding:40px 44px 32px;display:flex;flex-direction:column;gap:24px;">
+<header style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;">
+<div>
+<h1 style="margin:0;font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:38px;line-height:1.1;letter-spacing:-0.01em;">Sermon library</h1>
+<p style="margin:10px 0 0;font-size:16px;line-height:1.5;color:#5E584E;">Approved sermons are filed in the shared drive and backed up automatically.</p>
+</div>
+<a href="1-upload.dc.html" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border-radius:12px;background:#1F5C52;color:#FFFFFF;font-size:14.5px;font-weight:600;white-space:nowrap;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Upload tapes</a>
+</header>
+
+<div style="display:flex;align-items:center;gap:12px;">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;border:1px solid #D6CEBE;border-radius:12px;background:#FFFFFF;width:420px;box-sizing:border-box;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E584E" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+<input id="lib-search" aria-label="Search sermons" placeholder="Search titles, scripture or transcript text" style="flex:1;min-width:0;border:0;background:transparent;font-size:14.5px;color:#1E1D1A;">
+</div>
+<button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border:1px solid #D6CEBE;border-radius:12px;background:#FFFFFF;color:#1E1D1A;font-size:14px;font-weight:500;cursor:pointer;">Book<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border:1px solid #D6CEBE;border-radius:12px;background:#FFFFFF;color:#1E1D1A;font-size:14px;font-weight:500;cursor:pointer;">Category<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border:1px solid #D6CEBE;border-radius:12px;background:#FFFFFF;color:#1E1D1A;font-size:14px;font-weight:500;cursor:pointer;">Decade<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<button style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border:1px solid #D6CEBE;border-radius:12px;background:#FFFFFF;color:#1E1D1A;font-size:14px;font-weight:500;cursor:pointer;">Contributor<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<div style="flex:1;"></div>
+<div style="display:inline-flex;padding:4px;border-radius:12px;background:#EAE4D8;gap:4px;">
+<button style="height:36px;padding:0 14px;border:0;border-radius:9px;background:#FFFFFF;color:#1E1D1A;font-size:13.5px;font-weight:600;cursor:pointer;">List</button>
+<button style="height:36px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:#5E584E;font-size:13.5px;font-weight:600;cursor:pointer;">Grid</button>
+</div>
+</div>
+
+<section aria-label="Sermons" style="flex:1;min-height:0;background:#FFFFFF;border:1px solid #E5DFD3;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+
+<div style="display:flex;align-items:flex-end;gap:28px;padding:0 24px;border-bottom:1px solid #E5DFD3;">
+<button style="height:52px;padding:0 2px;border:0;border-bottom:2px solid #1F5C52;margin-bottom:-1px;background:transparent;color:#1E1D1A;font-size:14.5px;font-weight:600;cursor:pointer;">All <span style="color:#5E584E;font-weight:500;">8</span></button>
+<button style="height:52px;padding:0 2px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:transparent;color:#5E584E;font-size:14.5px;font-weight:500;cursor:pointer;">Needs review <span style="display:inline-block;min-width:20px;text-align:center;background:#FBEFD9;color:#8A5200;border-radius:999px;font-size:12px;font-weight:700;padding:1px 6px;margin-left:4px;">2</span></button>
+<button style="height:52px;padding:0 2px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:transparent;color:#5E584E;font-size:14.5px;font-weight:500;cursor:pointer;">Approved <span style="font-weight:500;">5</span></button>
+<button style="height:52px;padding:0 2px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:transparent;color:#5E584E;font-size:14.5px;font-weight:500;cursor:pointer;">Published <span style="font-weight:500;">3</span></button>
+</div>
+
+<div style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:40px;padding:0 24px;background:#FBF9F4;border-bottom:1px solid #EFEAE0;font-size:11.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#6F695E;">
+<div>Sermon</div><div>Scripture</div><div>Recorded</div><div>Status</div><div>Stored</div><div>Published</div>
+</div>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;border-bottom:1px solid #EFEAE0;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">Submitting to Leaders</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1988-03-13_Hebrews-13-17_Submitting-to-Leaders</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Trusting the leaders who keep watch over our souls.</div></div>
+<div><div style="font-size:14px;">Hebrews 13:17</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Epistle · New Testament</div></div>
+<div><div style="font-size:14px;">Mar 13, 1988</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">41:52</div></div>
+<div><span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#FBEFD9;color:#8A5200;font-size:12.5px;font-weight:600;white-space:nowrap;">Needs review</span></div>
+<div style="font-size:12.5px;color:#6F695E;">Not filed yet</div>
+<div style="font-size:12.5px;color:#6F695E;">Not published</div>
+</a>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;border-bottom:1px solid #EFEAE0;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">More Than Conquerors</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1991-09-22_Romans-8-28-39_More-Than-Conquerors</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Nothing can separate believers from the love of God.</div></div>
+<div><div style="font-size:14px;">Romans 8:28–39</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Epistle · New Testament</div></div>
+<div><div style="font-size:14px;">Sep 22, 1991</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">47:08</div></div>
+<div><span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#E3EFEB;color:#1F5C52;font-size:12.5px;font-weight:600;white-space:nowrap;">Approved</span></div>
+<div style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:#5E584E;">
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Shared drive</span>
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Admin backup</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;"><span style="display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;background:#EFEAE0;color:#3D3930;font-size:12px;font-weight:600;">YouTube</span><span style="display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;background:#EFEAE0;color:#3D3930;font-size:12px;font-weight:600;">Podcast</span></div>
+</a>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;border-bottom:1px solid #EFEAE0;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">The Shepherd’s Care</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1985-06-09_Psalm-23_The-Shepherds-Care</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">God’s provision, guidance and comfort in hard seasons.</div></div>
+<div><div style="font-size:14px;">Psalm 23</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Psalm · Old Testament</div></div>
+<div><div style="font-size:14px;">Jun 9, 1985</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">36:20</div></div>
+<div><span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#E3EFEB;color:#1F5C52;font-size:12.5px;font-weight:600;white-space:nowrap;">Approved</span></div>
+<div style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:#5E584E;">
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Shared drive</span>
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Admin backup</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;"><span style="display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;background:#EFEAE0;color:#3D3930;font-size:12px;font-weight:600;">Podcast</span></div>
+</a>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;border-bottom:1px solid #EFEAE0;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">Abiding in the Vine</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1994-11-06_John-15-1-8_Abiding-in-the-Vine</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Fruitfulness comes from staying close to Christ.</div></div>
+<div><div style="font-size:14px;">John 15:1–8</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Gospel · New Testament</div></div>
+<div><div style="font-size:14px;">Nov 6, 1994</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">44:31</div></div>
+<div><span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#E3EFEB;color:#1F5C52;font-size:12.5px;font-weight:600;white-space:nowrap;">Approved</span></div>
+<div style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:#5E584E;">
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Shared drive</span>
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Admin backup</span>
+</div>
+<div style="font-size:12.5px;color:#6F695E;">Not published</div>
+</a>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;border-bottom:1px solid #EFEAE0;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">Walking Worthy</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1989-02-19_Ephesians-4-1-16_Walking-Worthy</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Living out the church’s calling with humility and unity.</div></div>
+<div><div style="font-size:14px;">Ephesians 4:1–16</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Epistle · New Testament</div></div>
+<div><div style="font-size:14px;">Feb 19, 1989</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">52:14</div></div>
+<div><span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#FBEFD9;color:#8A5200;font-size:12.5px;font-weight:600;white-space:nowrap;">Needs review</span></div>
+<div style="font-size:12.5px;color:#6F695E;">Not filed yet</div>
+<div style="font-size:12.5px;color:#6F695E;">Not published</div>
+</a>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;border-bottom:1px solid #EFEAE0;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">Road to Emmaus</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1996-04-14_Luke-24-13-35_Road-to-Emmaus</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Two discouraged disciples meet the risen Christ.</div></div>
+<div><div style="font-size:14px;">Luke 24:13–35</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Gospel · New Testament</div></div>
+<div><div style="font-size:14px;">Apr 14, 1996</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">39:47</div></div>
+<div><span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#E3EFEB;color:#1F5C52;font-size:12.5px;font-weight:600;white-space:nowrap;">Approved</span></div>
+<div style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:#5E584E;">
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Shared drive</span>
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Admin backup</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;"><span style="display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;background:#EFEAE0;color:#3D3930;font-size:12px;font-weight:600;">YouTube</span></div>
+</a>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;border-bottom:1px solid #EFEAE0;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">Rejoice Always</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1987-08-30_Philippians-4-4-9_Rejoice-Always</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Choosing joy and prayer over anxiety.</div></div>
+<div><div style="font-size:14px;">Philippians 4:4–9</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Epistle · New Testament</div></div>
+<div><div style="font-size:14px;">Aug 30, 1987</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">33:05</div></div>
+<div><span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:#E3EFEB;color:#1F5C52;font-size:12.5px;font-weight:600;white-space:nowrap;">Approved</span></div>
+<div style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:#5E584E;">
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Shared drive</span>
+<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Admin backup</span>
+</div>
+<div style="font-size:12.5px;color:#6F695E;">Not published</div>
+</a>
+
+<a href="3-review-sermon.dc.html" style="display:grid;grid-template-columns:400px 150px 100px 116px 116px minmax(0,1fr);column-gap:16px;align-items:center;height:88px;padding:0 24px;">
+<div style="min-width:0;"><div style="font-size:15px;font-weight:600;">Unto Us a Child</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#6F695E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1993-12-05_Isaiah-9-1-7_Unto-Us-a-Child</div><div style="font-size:12.5px;color:#5E584E;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Summary appears when processing finishes.</div></div>
+<div><div style="font-size:14px;">Isaiah 9:1–7</div><div style="font-size:12.5px;color:#6F695E;margin-top:3px;">Prophecy · Old Testament</div></div>
+<div><div style="font-size:14px;">Dec 5, 1993</div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:#6F695E;margin-top:3px;">—</div></div>
+<div><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#EFEAE0;color:#3D3930;font-size:12.5px;font-weight:600;white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:#E19A1F;"></span>Processing</span></div>
+<div style="font-size:12.5px;color:#6F695E;">Not filed yet</div>
+<div style="font-size:12.5px;color:#6F695E;">Not published</div>
+</a>
+
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
