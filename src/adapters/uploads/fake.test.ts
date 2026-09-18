@@ -152,3 +152,49 @@ describe('presigned part URLs', () => {
     ).rejects.toBeInstanceOf(UploadNotFoundError);
   });
 });
+
+describe('signed read URLs', () => {
+  const KEY2 = 'cleaned/abc/job.mp3';
+
+  it('are accepted when genuine and carry the key, expiry and signature', async () => {
+    const { url } = await store.presignRead({ key: KEY2, expiresInSec: 60 });
+    const u = new URL(url, 'http://x');
+    expect(u.pathname).toBe('/api/dev-media');
+    expect(() =>
+      store.verifyRead({
+        key: u.searchParams.get('key')!,
+        exp: Number(u.searchParams.get('exp')),
+        sig: u.searchParams.get('sig')!,
+      }),
+    ).not.toThrow();
+  });
+
+  it('are refused for another file, a tampered signature, or after they expire', async () => {
+    const { url } = await store.presignRead({ key: KEY2, expiresInSec: 60 });
+    const u = new URL(url, 'http://x');
+    const good = {
+      key: KEY2,
+      exp: Number(u.searchParams.get('exp')),
+      sig: u.searchParams.get('sig')!,
+    };
+    expect(() => store.verifyRead({ ...good, key: 'cleaned/other/job.mp3' })).toThrow(/signature/i);
+    expect(() =>
+      store.verifyRead({ ...good, sig: good.sig.replace(/.$/, (c) => (c === '0' ? '1' : '0')) }),
+    ).toThrow(/signature/i);
+    const expired = await store.presignRead({ key: KEY2, expiresInSec: -5 });
+    const e = new URL(expired.url, 'http://x');
+    expect(() =>
+      store.verifyRead({
+        key: KEY2,
+        exp: Number(e.searchParams.get('exp')),
+        sig: e.searchParams.get('sig')!,
+      }),
+    ).toThrow(/expired/i);
+  });
+
+  it('cannot be made for an unsafe key', async () => {
+    await expect(store.presignRead({ key: '../secret', expiresInSec: 60 })).rejects.toBeInstanceOf(
+      InvalidStorageKeyError,
+    );
+  });
+});

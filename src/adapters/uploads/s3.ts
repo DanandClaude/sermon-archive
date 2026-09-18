@@ -72,6 +72,18 @@ export class S3UploadStore implements UploadStore {
     return { url };
   }
 
+  async presignRead({ key, expiresInSec }: { key: string; expiresInSec: number }) {
+    assertValidKey(key);
+    const url = await getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      {
+        expiresIn: expiresInSec,
+      },
+    );
+    return { url };
+  }
+
   async listParts({ key, uploadId }: { key: string; uploadId: string }): Promise<UploadedPart[]> {
     const parts: UploadedPart[] = [];
     let marker: string | undefined;

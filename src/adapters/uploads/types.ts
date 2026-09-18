@@ -27,6 +27,8 @@ export interface UploadStore {
   /** Idempotent. */
   abortMultipartUpload(input: { key: string; uploadId: string }): Promise<void>;
   head(key: string): Promise<{ bytes: number } | null>;
+  /** A short-lived URL a browser can play or download an object from. */
+  presignRead(input: { key: string; expiresInSec: number }): Promise<{ url: string }>;
   /** Reads an object, or an inclusive byte range of it. */
   read(key: string, range?: { start: number; end: number }): Promise<AsyncIterable<Uint8Array>>;
 }

@@ -67,6 +67,23 @@ describe('S3UploadStore presigned part URLs', () => {
   });
 });
 
+describe('S3UploadStore read URLs', () => {
+  it('are signed GETs for the object and expire when asked', async () => {
+    const store = new S3UploadStore({
+      bucket: 'church-sermons',
+      region: 'us-east-1',
+      client: client(),
+    });
+    const { url } = await store.presignRead({ key: 'cleaned/abc/job.mp3', expiresInSec: 3600 });
+    const u = new URL(url);
+    expect(u.hostname).toBe('church-sermons.s3.us-east-1.amazonaws.com');
+    expect(u.pathname).toBe('/cleaned/abc/job.mp3');
+    expect(u.searchParams.get('X-Amz-Expires')).toBe('3600');
+    expect(u.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
+    expect(u.searchParams.has('partNumber')).toBe(false);
+  });
+});
+
 describe('S3UploadStore error handling', () => {
   const noSuchUpload = () => new NoSuchUpload({ message: 'gone', $metadata: {} });
 

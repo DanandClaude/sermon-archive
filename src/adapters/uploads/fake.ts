@@ -104,6 +104,28 @@ export class FakeUploadStore implements UploadStore {
     return parts.sort((a, b) => a.partNumber - b.partNumber);
   }
 
+  private signRead(key: string, exp: number) {
+    return createHmac('sha256', this.secret).update(`read|${key}|${exp}`).digest('hex');
+  }
+
+  async presignRead({ key, expiresInSec }: { key: string; expiresInSec: number }) {
+    assertValidKey(key);
+    const exp = Math.floor(Date.now() / 1000) + expiresInSec;
+    const params = new URLSearchParams({ key, exp: String(exp), sig: this.signRead(key, exp) });
+    return { url: `/api/dev-media?${params}` };
+  }
+
+  /** What the /api/dev-media route calls before serving a file. Throws if the URL is forged or expired. */
+  verifyRead(input: { key: string; exp: number; sig: string }): void {
+    assertValidKey(input.key);
+    const expected = Buffer.from(this.signRead(input.key, input.exp));
+    const given = Buffer.from(input.sig);
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+      throw new Error('Bad signature');
+    }
+    if (input.exp < Date.now() / 1000) throw new Error('URL expired');
+  }
+
   async completeMultipartUpload(input: {
     key: string;
     uploadId: string;
