@@ -1,0 +1,40 @@
+{
+  "_comment": "Read by both the Next.js app and the Python worker. src/lib/sermon-status.ts keeps the same table in TypeScript, and a test fails if the two ever differ.",
+  "statuses": [
+    "uploading",
+    "uploaded",
+    "cleaning",
+    "transcribing",
+    "analyzing",
+    "needs_review",
+    "approved",
+    "filing",
+    "filed",
+    "failed"
+  ],
+  "transitions": {
+    "uploading": ["uploaded", "failed"],
+    "uploaded": ["cleaning", "failed"],
+    "cleaning": ["transcribing", "failed"],
+    "transcribing": ["analyzing", "failed"],
+    "analyzing": ["needs_review", "failed"],
+    "needs_review": ["approved"],
+    "approved": ["filing"],
+    "filing": ["filed", "approved"],
+    "filed": [],
+    "failed": ["cleaning", "transcribing", "analyzing"]
+  },
+  "jobs": {
+    "clean": {
+      "runningStatus": "cleaning",
+      "startFrom": ["uploaded", "cleaning"],
+      "onSuccess": { "status": "transcribing", "enqueue": "transcribe" }
+    },
+    "transcribe": {
+      "runningStatus": "transcribing",
+      "startFrom": ["cleaning", "transcribing"],
+      "onSuccess": { "status": "analyzing", "enqueue": null }
+    }
+  },
+  "failedStages": ["cleaning", "transcribing", "analyzing"]
+}

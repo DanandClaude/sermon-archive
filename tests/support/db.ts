@@ -10,7 +10,7 @@ export function openTestDb(): Db {
 
 export async function resetTables(db: Db): Promise<void> {
   await db.execute(
-    sql`truncate table uploads, audio_assets, sermons, login_tokens, sessions, audit_log, settings, users restart identity cascade`,
+    sql`truncate table worker_heartbeats, transcripts, jobs, uploads, audio_assets, sermons, login_tokens, sessions, audit_log, settings, users restart identity cascade`,
   );
 }
 

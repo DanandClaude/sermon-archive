@@ -13,11 +13,12 @@ export async function transitionSermon(
   sermonId: string,
   from: SermonStatus,
   to: SermonStatus,
+  extra: { failedStage?: string | null; lastError?: string | null } = {},
 ): Promise<boolean> {
   assertTransition(from, to);
   const rows = await db
     .update(sermons)
-    .set({ status: to, updatedAt: new Date() })
+    .set({ status: to, updatedAt: new Date(), ...extra })
     .where(and(eq(sermons.id, sermonId), eq(sermons.status, from)))
     .returning({ id: sermons.id });
   return rows.length === 1;
