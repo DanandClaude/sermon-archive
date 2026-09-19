@@ -16,11 +16,32 @@ const baseSchema = z.object({
   MAIL_FROM: optionalString,
   S3_BUCKET: optionalString,
   S3_REGION: optionalString,
+  /**
+   * 32 random bytes as 64 hex characters (`openssl rand -hex 32`). Encrypts storage credentials
+   * at rest. Required in production; development falls back to a fixed, insecure key.
+   */
+  SECRETS_KEY: optionalString.pipe(
+    z
+      .string()
+      .regex(/^[0-9a-fA-F]{64}$/, 'SECRETS_KEY must be 64 hex characters (openssl rand -hex 32)')
+      .optional(),
+  ),
+  /** OAuth client for connecting Google Drive. Only used when ADAPTER_MODE=real. */
+  GOOGLE_CLIENT_ID: optionalString,
+  GOOGLE_CLIENT_SECRET: optionalString,
   /** Set for S3-compatible services other than AWS (Cloudflare R2, MinIO, Backblaze). */
   S3_ENDPOINT: optionalString,
 });
 
-const REAL_MODE_REQUIRED = ['SMTP_URL', 'MAIL_FROM', 'S3_BUCKET', 'S3_REGION'] as const;
+const REAL_MODE_REQUIRED = [
+  'SMTP_URL',
+  'MAIL_FROM',
+  'S3_BUCKET',
+  'S3_REGION',
+  'SECRETS_KEY',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+] as const;
 
 const envSchema = baseSchema
   .superRefine((env, ctx) => {
@@ -29,6 +50,13 @@ const envSchema = baseSchema
         code: 'custom',
         path: ['APP_URL'],
         message: 'APP_URL is required in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && !env.SECRETS_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SECRETS_KEY'],
+        message: 'SECRETS_KEY is required in production',
       });
     }
     if (env.ADAPTER_MODE === 'real') {

@@ -48,6 +48,17 @@
         "status": "needs_review",
         "enqueue": null
       }
+    },
+    "file": {
+      "runningStatus": "filing",
+      "startFrom": ["approved", "filing"],
+      "onSuccess": {
+        "status": "filed",
+        "enqueue": null
+      },
+      "onFailure": {
+        "status": "approved"
+      }
     }
   },
   "failedStages": ["cleaning", "transcribing", "analyzing"]

@@ -23,10 +23,13 @@ describe('migrations', () => {
       'sermons',
       'sessions',
       'settings',
+      'storage_objects',
+      'storage_targets',
       'tags',
       'transcripts',
       'uploads',
       'users',
+      'verification_runs',
       'worker_heartbeats',
     ]);
   });

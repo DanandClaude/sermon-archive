@@ -41,7 +41,7 @@ describe('parseEnv', () => {
       ADAPTER_MODE: 'real',
     };
     expect(() => parseEnv(real)).toThrow(
-      /SMTP_URL[\s\S]*MAIL_FROM[\s\S]*S3_BUCKET[\s\S]*S3_REGION/,
+      /SMTP_URL[\s\S]*MAIL_FROM[\s\S]*S3_BUCKET[\s\S]*S3_REGION[\s\S]*GOOGLE_CLIENT_ID[\s\S]*GOOGLE_CLIENT_SECRET/,
     );
     expect(
       parseEnv({
@@ -50,8 +50,19 @@ describe('parseEnv', () => {
         MAIL_FROM: 'a@a.test',
         S3_BUCKET: 'b',
         S3_REGION: 'us-east-1',
+        SECRETS_KEY: 'ab'.repeat(32),
+        GOOGLE_CLIENT_ID: 'id',
+        GOOGLE_CLIENT_SECRET: 'secret',
       }).S3_BUCKET,
     ).toBe('b');
+  });
+
+  it('requires a secrets key in production, and only a well-formed one anywhere', () => {
+    expect(() =>
+      parseEnv({ DATABASE_URL: 'x', NODE_ENV: 'production', APP_URL: 'https://a.test' }),
+    ).toThrow(/SECRETS_KEY/);
+    expect(() => parseEnv({ DATABASE_URL: 'x', SECRETS_KEY: 'too-short' })).toThrow(/64 hex/);
+    expect(parseEnv({ DATABASE_URL: 'x' }).SECRETS_KEY).toBeUndefined();
   });
 
   it('treats blank optional values as unset', () => {

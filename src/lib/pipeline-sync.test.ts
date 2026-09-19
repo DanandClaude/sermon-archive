@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { FAILED_STAGES, JOB_TYPES, STAGE_JOB } from './job-types';
+import { APPROVED_STAGE_JOBS, FAILED_STAGES, JOB_TYPES, STAGE_JOB } from './job-types';
 import { SERMON_STATUSES, TRANSITIONS } from './sermon-status';
 
 const read = (file: string) =>
@@ -45,6 +45,22 @@ describe('shared/pipeline.json matches the TypeScript definitions', () => {
         cfg.onSuccess.status,
       );
     }
+  });
+
+  it('says where a failed job leaves the sermon, and that is a legal move', () => {
+    for (const [type, cfg] of Object.entries<{
+      runningStatus: string;
+      onFailure?: { status: string };
+    }>(pipeline.jobs)) {
+      const target = cfg.onFailure?.status ?? 'failed';
+      expect(TRANSITIONS[cfg.runningStatus as keyof typeof TRANSITIONS], type).toContain(target);
+    }
+    // Only filing is allowed to fail back to approved instead of failed.
+    expect(
+      Object.entries<{ onFailure?: unknown }>(pipeline.jobs)
+        .filter(([, cfg]) => cfg.onFailure)
+        .map(([type]) => type),
+    ).toEqual([...APPROVED_STAGE_JOBS]);
   });
 
   it('lists the failed stages, each of which can be reached from failed', () => {

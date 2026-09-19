@@ -1,4 +1,4 @@
-export const JOB_TYPES = ['clean', 'transcribe', 'analyze'] as const;
+export const JOB_TYPES = ['clean', 'transcribe', 'analyze', 'file'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATES = ['queued', 'running', 'succeeded', 'failed', 'canceled'] as const;
@@ -13,3 +13,9 @@ export const STAGE_JOB: Record<FailedStage, JobType | null> = {
   transcribing: 'transcribe',
   analyzing: 'analyze',
 };
+
+/**
+ * Stages whose failure does not mark the sermon `failed`. A filing that fails leaves the sermon
+ * `approved` with a visible error (SPEC §7), and an admin retries it.
+ */
+export const APPROVED_STAGE_JOBS = ['file'] as const satisfies readonly JobType[];

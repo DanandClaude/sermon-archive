@@ -122,6 +122,10 @@ export const sermons = pgTable(
     primaryPassage: jsonb('primary_passage'),
     approvedAt: timestamp('approved_at', { withTimezone: true }),
     approvedBy: uuid('approved_by').references((): AnyPgColumn => users.id),
+    /** Set when both storage targets hold verified copies. */
+    filedAt: timestamp('filed_at', { withTimezone: true }),
+    /** Why filing has not finished, in plain language. Shown while the sermon stays `approved`. */
+    filingError: text('filing_error'),
     /** Set with status `failed`: the stage to resume from when someone presses Retry. */
     failedStage: text('failed_stage'),
     lastError: text('last_error'),
@@ -368,6 +372,98 @@ export const analyses = pgTable(
   (t) => [index('analyses_sermon_idx').on(t.sermonId)],
 );
 
+export const storageRole = pgEnum('storage_role', ['shared', 'backup']);
+export const storageObjectState = pgEnum('storage_object_state', [
+  'uploaded',
+  'verified',
+  'drifted',
+  'missing',
+]);
+
+/**
+ * Where approved sermons are filed: one shared archive drive and one admin-only backup, each on
+ * its own account. The configuration (a Drive refresh token, or a development folder) is encrypted
+ * at rest; only the worker and admin actions ever decrypt it.
+ */
+export const storageTargets = pgTable('storage_targets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  role: storageRole('role').notNull().unique(),
+  /** 'google_drive', or 'local' (a folder on this machine, development only). */
+  provider: text('provider').notNull(),
+  encryptedConfig: text('encrypted_config'),
+  /** For display and to keep the two targets on different accounts: the Google email, or a folder label. */
+  accountLabel: text('account_label'),
+  /** Name of the top folder, created on first filing. */
+  rootFolderName: text('root_folder_name').notNull(),
+  /** The provider's id for that folder, once created. Not secret. */
+  rootFolderId: text('root_folder_id'),
+  connectedBy: uuid('connected_by').references(() => users.id),
+  connectedAt: timestamp('connected_at', { withTimezone: true }),
+  /** Set when an admin disconnects; the credentials are wiped at the same time. */
+  disconnectedAt: timestamp('disconnected_at', { withTimezone: true }),
+  lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One row per file the filing job wrote to a target. Paths are relative to the target's root. */
+export const storageObjects = pgTable(
+  'storage_objects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sermonId: uuid('sermon_id')
+      .notNull()
+      .references(() => sermons.id),
+    targetId: uuid('target_id')
+      .notNull()
+      .references(() => storageTargets.id),
+    /** 'audio_cleaned', 'audio_original', 'transcript_json', 'transcript_text', 'subtitles', 'metadata'. */
+    kind: text('kind').notNull(),
+    path: text('path').notNull(),
+    remoteId: text('remote_id').notNull(),
+    bytes: bigint('bytes', { mode: 'number' }).notNull(),
+    /** Our own hash, kept whatever the provider reports. */
+    sha256: text('sha256').notNull(),
+    /** What the provider reports (MD5 for Drive), in `checksumAlgorithm`. */
+    remoteChecksum: text('remote_checksum').notNull(),
+    checksumAlgorithm: text('checksum_algorithm').notNull(),
+    state: storageObjectState('state').notNull().default('uploaded'),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('storage_objects_target_path_idx').on(t.targetId, t.path),
+    index('storage_objects_sermon_idx').on(t.sermonId),
+    index('storage_objects_state_idx').on(t.state),
+  ],
+);
+
+/** "Verify now" and the nightly check. The worker picks up queued runs and fills in the result. */
+export const verificationRuns = pgTable(
+  'verification_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    trigger: text('trigger').notNull(),
+    requestedBy: uuid('requested_by').references(() => users.id),
+    state: text('state').notNull().default('queued'),
+    checked: integer('checked'),
+    verified: integer('verified'),
+    drifted: integer('drifted'),
+    missing: integer('missing'),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [
+    check(
+      'verification_runs_state_check',
+      sql`${t.state} in ('queued', 'running', 'done', 'failed')`,
+    ),
+    check('verification_runs_trigger_check', sql`${t.trigger} in ('manual', 'nightly')`),
+    index('verification_runs_created_idx').on(t.createdAt),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Sermon = typeof sermons.$inferSelect;
 export type Upload = typeof uploads.$inferSelect;
@@ -375,4 +471,7 @@ export type Job = typeof jobs.$inferSelect;
 export type ScriptureRef = typeof scriptureRefs.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Transcript = typeof transcripts.$inferSelect;
+export type StorageTarget = typeof storageTargets.$inferSelect;
+export type StorageObject = typeof storageObjects.$inferSelect;
+export type VerificationRun = typeof verificationRuns.$inferSelect;
 export type { Role as UserRole } from '../lib/roles';
