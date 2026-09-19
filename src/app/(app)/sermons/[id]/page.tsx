@@ -44,14 +44,11 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
   if (!detail) notFound();
 
   const store = getUploadStore();
-  const [originalUrl, cleanedUrl, originalPeaks, cleanedPeaks] = await Promise.all([
-    detail.original
-      ? store.presignRead({ key: detail.original.storageKey, expiresInSec: READ_URL_SECONDS })
-      : null,
+  // Only the cleaned recording is offered for review. The original stays in storage untouched.
+  const [cleanedUrl, cleanedPeaks] = await Promise.all([
     detail.cleaned
       ? store.presignRead({ key: detail.cleaned.storageKey, expiresInSec: READ_URL_SECONDS })
       : null,
-    readPeaks(store, detail.original?.peaksKey ?? null),
     readPeaks(store, detail.cleaned?.peaksKey ?? null),
   ]);
   const processing = (PROCESSING as readonly string[]).includes(detail.status);
@@ -128,11 +125,9 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
 
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:gap-6">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
-          {originalUrl ? (
+          {cleanedUrl ? (
             <SermonPlayer
-              originalUrl={originalUrl.url}
-              cleanedUrl={cleanedUrl?.url ?? null}
-              originalPeaks={originalPeaks}
+              cleanedUrl={cleanedUrl.url}
               cleanedPeaks={cleanedPeaks}
               durationSec={detail.durationSec}
             />

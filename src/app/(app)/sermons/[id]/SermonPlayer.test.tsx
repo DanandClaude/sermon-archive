@@ -6,22 +6,13 @@ import { SermonPlayer } from './SermonPlayer';
 
 const peaks = { duration: 100, peaks: [0.1, 0.5, 0.9] };
 
-function setup(over: Partial<React.ComponentProps<typeof SermonPlayer>> = {}) {
-  return render(
+const setup = () =>
+  render(
     <ReviewProvider sermonId="s1">
-      <SermonPlayer
-        originalUrl="/media/original.mp3"
-        cleanedUrl="/media/cleaned.mp3"
-        originalPeaks={peaks}
-        cleanedPeaks={peaks}
-        durationSec={100}
-        {...over}
-      />
+      <SermonPlayer cleanedUrl="/media/cleaned.mp3" cleanedPeaks={peaks} durationSec={100} />
     </ReviewProvider>,
   );
-}
 const audio = () => document.querySelector('audio')!;
-const radio = (name: RegExp) => screen.getByRole('radio', { name });
 
 describe('SermonPlayer', () => {
   beforeEach(() => {
@@ -29,55 +20,34 @@ describe('SermonPlayer', () => {
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
   });
 
-  it('starts on the cleaned version and switches to the original when it plays', () => {
+  it('plays the cleaned recording and offers no choice of version', () => {
     setup();
     expect(audio().getAttribute('src')).toBe('/media/cleaned.mp3');
-    fireEvent.click(radio(/original/i));
-    expect(audio().getAttribute('src')).toBe('/media/original.mp3');
-    expect(radio(/original/i).getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByText(/original tape/i)).toBeNull();
+  });
+
+  it('shows one waveform, the length, and the transport controls', () => {
+    setup();
+    expect(screen.getAllByRole('slider')).toHaveLength(1);
+    expect(screen.getByText('/ 1:40')).toBeTruthy();
+    for (const name of [/^play$/i, /back 15/i, /forward 15/i, /playback speed/i]) {
+      expect(screen.getByRole('button', { name })).toBeTruthy();
+    }
+  });
+
+  it('cycles the speed', () => {
+    setup();
+    const speed = () => screen.getByRole('button', { name: /playback speed/i });
+    fireEvent.click(speed());
+    expect(speed().textContent).toBe('1.25×');
+    expect(audio().playbackRate).toBe(1.25);
+  });
+
+  it('explains it when the browser cannot play the file', () => {
+    setup();
     expect(screen.queryByRole('alert')).toBeNull();
-  });
-
-  it('when the browser cannot decode the original, says so and goes back to the cleaned version', () => {
-    setup();
-    fireEvent.click(radio(/original/i));
     act(() => void fireEvent.error(audio()));
-    expect(audio().getAttribute('src')).toBe('/media/cleaned.mp3');
-    expect(screen.getByRole('alert').textContent).toMatch(/can’t play the original tape file/);
-    expect(screen.getByRole('alert').textContent).toMatch(/stored unchanged/);
-    expect(radio(/original/i).hasAttribute('disabled')).toBe(true);
-    expect(radio(/cleaned/i).getAttribute('aria-checked')).toBe('true');
-  });
-
-  it('does not offer the version that failed again', () => {
-    setup();
-    fireEvent.click(radio(/original/i));
-    act(() => void fireEvent.error(audio()));
-    fireEvent.click(radio(/original/i));
-    expect(audio().getAttribute('src')).toBe('/media/cleaned.mp3');
-  });
-
-  it('with only the original available, explains that nothing can play instead of looping', () => {
-    setup({ cleanedUrl: null });
-    expect(audio().getAttribute('src')).toBe('/media/original.mp3');
-    act(() => void fireEvent.error(audio()));
-    expect(screen.getByRole('alert').textContent).toMatch(/can’t play the original tape file/);
-    expect(audio().getAttribute('src')).toBe('/media/original.mp3');
-  });
-
-  it('says so when neither version plays', () => {
-    setup();
-    act(() => void fireEvent.error(audio())); // cleaned fails first: falls back to the original
-    expect(audio().getAttribute('src')).toBe('/media/original.mp3');
-    act(() => void fireEvent.error(audio()));
-    expect(screen.getByRole('alert').textContent).toMatch(/can’t play either version/);
-  });
-
-  it('carries the listening position across to the version that works', () => {
-    setup();
-    fireEvent.click(radio(/original/i));
-    act(() => void fireEvent.error(audio()));
-    fireEvent.loadedMetadata(audio());
-    expect(audio().currentTime).toBe(0); // nothing had been played yet, so it starts at the top
+    expect(screen.getByRole('alert').textContent).toMatch(/can’t play this recording/);
   });
 });
