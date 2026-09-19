@@ -1,32 +1,59 @@
 # Sermon Archive
 
-A web app where designated people upload digitized cassette-tape sermons. It cleans up the audio, transcribes it, names and categorizes each sermon, lists the Bible passages the pastor names aloud, and files everything to a shared drive plus an admin-only backup.
+A free, self-hosted web app for churches that have old sermon tapes. People you choose upload digitized
+cassette recordings. The app cleans up the audio, transcribes it on your own machine (no audio is sent to
+a transcription service), names and categorizes each sermon, writes a short summary, lists the Bible
+passages the pastor names aloud with the time each was spoken, and files everything to a shared Google Drive
+plus an admin-only backup Drive. A person reviews and approves each sermon before it is filed.
 
-Start with [`CLAUDE.md`](CLAUDE.md) for commands and conventions, and [`SPEC.md`](SPEC.md) for the full product and technical spec. UI mockups are in [`design/`](design/).
+Built for one church per installation. Church and speaker names are settings, so it isn't tied to any
+congregation.
 
-## Status
+## What it does
 
-- Phase 0 (scaffold): done.
-- Phase 1 (sign-in, roles, uploads): done. Admins add people, everyone signs in with an emailed link, contributors upload batches of tapes with per-tape details, and the library lists what each person is allowed to see.
-- Phase 2 (cleanup and transcription): done. A Python worker cleans each tape's audio and transcribes it in-house with word timings; the queue shows real progress and failures with a Retry button. See [`worker/README.md`](worker/README.md).
-- Review, filing and publishing come in later phases (SPEC §14). A finished transcript waits as "Transcript ready" until Phase 3.
+- **Upload** tapes one at a time or in batches, with the date and passage from the tape label. Sides A and B
+  can be separate files.
+- **Clean up and transcribe** in the background, with word timings and the words the transcriber was unsure
+  of underlined for review.
+- **Suggest** a title, summary, tags and the scripture references, using Claude to read the transcript text.
+  A fake analyzer is available for trying it without an account.
+- **Review** on one screen: listen with a waveform, jump to any passage, add, edit or delete passages, edit
+  the summary and details, and approve. Names follow `YYYY-MM-DD_Book-Chapter-Verse_ShortTitle`.
+- **File and back up** approved sermons to two separate Google accounts, checking every file after it is
+  written, with a nightly check for anything that has changed or gone missing.
+- **Nightly database backups** to your storage bucket, kept 14 days plus 8 weeks of Sunday copies.
+- **Roles:** admins run everything; contributors upload and approve their own; viewers see approved sermons.
+  Sign-in is by emailed link, by invitation only.
 
-## Setting up storage and email for a real deployment
+Publishing to YouTube and a podcast feed is planned; see `SPEC.md`.
 
-Set `NODE_ENV=production`, `ADAPTER_MODE=real` and the variables in `.env.example`. Nothing is sent to real services in development or tests.
+## Install it for your church
 
-**Upload bucket (AWS S3 or an S3-compatible service).** Browsers upload audio straight to it.
+Follow **[deploy/INSTALL.md](deploy/INSTALL.md)**: a step-by-step guide to running it on a small rented server
+with Docker. Restoring from a backup is in [deploy/RESTORE.md](deploy/RESTORE.md).
 
-- Give the app credentials that can create, upload to, list, read and abort multipart uploads in one bucket (standard `AWS_*` variables or an instance role).
-- Add a CORS rule that allows `PUT` from your `APP_URL`.
-- Add a lifecycle rule that aborts incomplete multipart uploads after a few days.
-- Keep the bucket private. The app never makes it public.
+## Develop it
 
-**Email.** Sign-in links are sent over SMTP (`SMTP_URL`, `MAIL_FROM`). Any provider works (Postmark, Resend, Amazon SES, a Google Workspace relay). Set up SPF and DKIM for the sending domain, or links may land in spam.
+Start with [`CLAUDE.md`](CLAUDE.md) for commands and conventions and [`SPEC.md`](SPEC.md) for the full product
+and technical spec. UI mockups are in [`design/`](design/), the audio worker is described in
+[`worker/README.md`](worker/README.md), and a quick start is:
 
-**Audio worker.** Run it on a machine that stays on (`worker/README.md`). It needs the same database and storage settings as the app, plus ffmpeg and the Whisper model.
+```sh
+npm install
+createdb sermon_archive && createdb sermon_archive_test
+cp .env.example .env.local        # set APP_URL to the port you run on
+npm run db:migrate
+npm run admin:create -- --email you@example.org --name "Your Name"
+npm run dev                       # sign-in emails appear at /dev/outbox
+npm run worker:install && npm run worker
+```
 
-**First admin.** Run `npm run admin:create -- --email you@example.org --name "Your Name"` on the server. It prints a one-time sign-in link.
+Development and tests never touch a real account: mail, storage, Google Drive and the analyzer all have
+local fakes, and the real ones only run when `NODE_ENV=production` and `ADAPTER_MODE=real`.
+
+## License
+
+[MIT](LICENSE). The King James text used to build the Bible-chapter table is in the public domain.
 
 ## Where sermon content goes
 
