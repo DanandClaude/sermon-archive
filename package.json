@@ -20,7 +20,8 @@
     "worker": "worker/run.sh",
     "worker:once": "worker/run.sh -m sermon_worker --once",
     "worker:test": "cd worker && .venv/bin/python -m pytest",
-    "worker:lint": "cd worker && .venv/bin/ruff check src tests && .venv/bin/ruff format --check src tests"
+    "worker:lint": "cd worker && .venv/bin/ruff check src tests && .venv/bin/ruff format --check src tests",
+    "worker:install-mlx": "worker/.venv/bin/pip install -e \"worker[dev,mlx]\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1135.0",

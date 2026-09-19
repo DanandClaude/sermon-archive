@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Not JavaScript projects: the Python worker (its virtual environment ships JS files), local
+    // upload storage, and private tuning audio.
+    'worker/**',
+    '.data/**',
+    'fixtures/**',
   ]),
 ]);
 

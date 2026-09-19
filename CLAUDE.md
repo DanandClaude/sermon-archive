@@ -43,7 +43,7 @@ Needs Node 24 (`.nvmrc`) and local Postgres 16. No Docker or Redis.
 - Checks: `npm run lint`, `npm run typecheck`, `npm run format:check`; CI runs these plus `npm run build`
 - Migrations: edit `src/db/schema.ts`, run `npm run db:generate`, commit `drizzle/`, then `npm run db:migrate`
 - Worker (Python, `worker/`): `npm run worker:install` once, then `npm run worker` (or `npm run worker:once`); `npm run worker:test`, `npm run worker:lint`. See `worker/README.md`. It never downloads a model by itself: `worker/run.sh -m sermon_worker.fetch_model large-v3`
-- Without a model, run the worker with `TRANSCRIBER=fake` to try the whole pipeline (development only)
+- On an Apple Silicon Mac use `TRANSCRIBER=mlx` (about 4x faster than CPU on real tapes; `npm run worker:install-mlx`). Without any model, `TRANSCRIBER=fake` runs the whole pipeline with canned text (development only)
 
 ## Conventions
 - Next.js 16: `middleware` is now `proxy`, and some APIs differ from older versions. Read `node_modules/next/dist/docs/` before using one.
@@ -58,7 +58,8 @@ Needs Node 24 (`.nvmrc`) and local Postgres 16. No Docker or Redis.
 - Processing: the app enqueues rows in `jobs`; the Python worker claims them (`FOR UPDATE SKIP LOCKED`), cleans and transcribes, and writes new assets. The sermon status table is shared: `shared/pipeline.json` is read by both sides and a test fails if it differs from `src/lib/sermon-status.ts`. Change it in both places.
 - Transcripts live in `transcripts` (word-timed, versioned). SRT, VTT and text are rendered on demand by `src/lib/transcripts/render.ts`; don't store them.
 - Failures are shown to contributors in plain language (`sermons.last_error`); raw error text stays in `jobs` and is visible to admins only.
-- Transcription is in-house (faster-whisper). Don't add a hosted transcription service; the owner chose not to send audio to third parties.
+- Transcription is in-house (MLX on the Mac's GPU, or faster-whisper on a CPU). Don't add a hosted transcription service; the owner chose not to send audio to third parties. Tuning is done on real tapes in `fixtures/private/` (git-ignored, never commit sermon audio): the worker transcribes the original audio by default and cleans conservatively, because on real tapes cleanup did not help transcription.
+- The owner is fine with the Anthropic API reading transcript text (titles, summaries, scripture). Audio never goes to a third party.
 - The worker's Python package is found through `PYTHONPATH` (`worker/run.sh`, pytest config), not the editable-install `.pth`, which macOS can hide.
 - `next dev` may re-add a Next.js agent-rules block to this file. It is generic guidance and safe to keep or remove.
 
