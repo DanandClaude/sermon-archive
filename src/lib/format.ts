@@ -26,3 +26,15 @@ export function formatClock(seconds: number): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
+
+/**
+ * Reads a time someone typed: 83, 1:23 or 1:02:05, with seconds optionally fractional.
+ * Returns seconds, or null if it isn't a time.
+ */
+export function parseClock(text: string): number | null {
+  const parts = text.trim().split(':');
+  if (parts.length > 3 || parts.some((p) => !/^\d+(\.\d+)?$/.test(p))) return null;
+  const numbers = parts.map(Number);
+  if (numbers.slice(1).some((n) => n >= 60)) return null;
+  return numbers.reduce((total, n) => total * 60 + n, 0);
+}

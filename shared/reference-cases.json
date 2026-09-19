@@ -1,0 +1,310 @@
+{
+  "_comment": "Typed references and what a reference reader must return. The TypeScript and Python readers are both tested against this file so they can’t drift apart. Add a case, run the TypeScript test to see its result, check it by hand, then record it here.",
+  "cases": [
+    {
+      "text": "Hebrews 13:17",
+      "ok": true,
+      "ref": {
+        "book": "Hebrews",
+        "chapter": 13,
+        "verseStart": 17,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Romans 8:28-39",
+      "ok": true,
+      "ref": {
+        "book": "Romans",
+        "chapter": 8,
+        "verseStart": 28,
+        "verseEnd": 39
+      }
+    },
+    {
+      "text": "Romans 8:28–39",
+      "ok": true,
+      "ref": {
+        "book": "Romans",
+        "chapter": 8,
+        "verseStart": 28,
+        "verseEnd": 39
+      }
+    },
+    {
+      "text": "Rom. 8:28 to 39",
+      "ok": true,
+      "ref": {
+        "book": "Romans",
+        "chapter": 8,
+        "verseStart": 28,
+        "verseEnd": 39
+      }
+    },
+    {
+      "text": "Psalm 23",
+      "ok": true,
+      "ref": {
+        "book": "Psalms",
+        "chapter": 23,
+        "verseStart": null,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Psalms 23:1-6",
+      "ok": true,
+      "ref": {
+        "book": "Psalms",
+        "chapter": 23,
+        "verseStart": 1,
+        "verseEnd": 6
+      }
+    },
+    {
+      "text": "1 John 3:16",
+      "ok": true,
+      "ref": {
+        "book": "1 John",
+        "chapter": 3,
+        "verseStart": 16,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "First John 3:16",
+      "ok": true,
+      "ref": {
+        "book": "1 John",
+        "chapter": 3,
+        "verseStart": 16,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "1st Peter 5:2-3",
+      "ok": true,
+      "ref": {
+        "book": "1 Peter",
+        "chapter": 5,
+        "verseStart": 2,
+        "verseEnd": 3
+      }
+    },
+    {
+      "text": "I Peter 5:2",
+      "ok": true,
+      "ref": {
+        "book": "1 Peter",
+        "chapter": 5,
+        "verseStart": 2,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "2Timothy 3:16",
+      "ok": true,
+      "ref": {
+        "book": "2 Timothy",
+        "chapter": 3,
+        "verseStart": 16,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Jude 3",
+      "ok": true,
+      "ref": {
+        "book": "Jude",
+        "chapter": 1,
+        "verseStart": 3,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Jude 3-5",
+      "ok": true,
+      "ref": {
+        "book": "Jude",
+        "chapter": 1,
+        "verseStart": 3,
+        "verseEnd": 5
+      }
+    },
+    {
+      "text": "Obadiah 1:15",
+      "ok": true,
+      "ref": {
+        "book": "Obadiah",
+        "chapter": 1,
+        "verseStart": 15,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "heb 13:17",
+      "ok": true,
+      "ref": {
+        "book": "Hebrews",
+        "chapter": 13,
+        "verseStart": 17,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Song of Solomon 2:1",
+      "ok": true,
+      "ref": {
+        "book": "Song of Solomon",
+        "chapter": 2,
+        "verseStart": 1,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Song of Songs 2:1",
+      "ok": true,
+      "ref": {
+        "book": "Song of Solomon",
+        "chapter": 2,
+        "verseStart": 1,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Revelation 22",
+      "ok": true,
+      "ref": {
+        "book": "Revelation",
+        "chapter": 22,
+        "verseStart": null,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Revelations 22:21",
+      "ok": true,
+      "ref": {
+        "book": "Revelation",
+        "chapter": 22,
+        "verseStart": 21,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "John 3:16-16",
+      "ok": true,
+      "ref": {
+        "book": "John",
+        "chapter": 3,
+        "verseStart": 16,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Genesis 1",
+      "ok": true,
+      "ref": {
+        "book": "Genesis",
+        "chapter": 1,
+        "verseStart": null,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Ps 119:105",
+      "ok": true,
+      "ref": {
+        "book": "Psalms",
+        "chapter": 119,
+        "verseStart": 105,
+        "verseEnd": null
+      }
+    },
+    {
+      "text": "Acts 9:26 through 27",
+      "ok": true,
+      "ref": {
+        "book": "Acts",
+        "chapter": 9,
+        "verseStart": 26,
+        "verseEnd": 27
+      }
+    },
+    {
+      "text": "Matthew 5:1 thru 12",
+      "ok": true,
+      "ref": {
+        "book": "Matthew",
+        "chapter": 5,
+        "verseStart": 1,
+        "verseEnd": 12
+      }
+    },
+    {
+      "text": "Romans 99:1",
+      "ok": false,
+      "error": "Romans has 16 chapters."
+    },
+    {
+      "text": "Hezekiah 3:1",
+      "ok": false,
+      "error": "“Hezekiah” isn’t a book of the Bible."
+    },
+    {
+      "text": "Romans 8:99",
+      "ok": false,
+      "error": "Romans 8 has 39 verses."
+    },
+    {
+      "text": "Romans 8:39-28",
+      "ok": false,
+      "error": "The ending verse can’t come before the starting verse."
+    },
+    {
+      "text": "Romans 8:1-99",
+      "ok": false,
+      "error": "Romans 8 has 39 verses."
+    },
+    {
+      "text": "Hebrews",
+      "ok": false,
+      "error": "Write it like “Hebrews 13:17” or “Psalm 23”."
+    },
+    {
+      "text": "Romans 0:1",
+      "ok": false,
+      "error": "Romans has 16 chapters."
+    },
+    {
+      "text": "Romans 8:0",
+      "ok": false,
+      "error": "Romans 8 has 39 verses."
+    },
+    {
+      "text": "",
+      "ok": false,
+      "error": "Write it like “Hebrews 13:17” or “Psalm 23”."
+    },
+    {
+      "text": "3:16",
+      "ok": false,
+      "error": "Write it like “Hebrews 13:17” or “Psalm 23”."
+    },
+    {
+      "text": "Jude 2:1",
+      "ok": false,
+      "error": "Jude has 1 chapter."
+    },
+    {
+      "text": "4 John 3:16",
+      "ok": false,
+      "error": "“4 John” isn’t a book of the Bible."
+    },
+    {
+      "text": "Psalm 151",
+      "ok": false,
+      "error": "Psalms has 150 chapters."
+    }
+  ]
+}

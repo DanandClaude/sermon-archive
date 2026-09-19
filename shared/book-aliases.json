@@ -1,0 +1,280 @@
+{
+  "_comment": "Ways to write each book's name. `alternates` are full names that are safe to look for in spoken text. `abbreviations` are only safe in typed input (a bare 'is' or 'ex' would match ordinary words). Numbered books use digits; the readers convert first, 1st, I and so on to digits before lookup.",
+  "books": {
+    "Genesis": {
+      "alternates": [],
+      "abbreviations": ["gen", "ge", "gn"]
+    },
+    "Exodus": {
+      "alternates": [],
+      "abbreviations": ["exod", "exo", "ex"]
+    },
+    "Leviticus": {
+      "alternates": [],
+      "abbreviations": ["lev", "le", "lv"]
+    },
+    "Numbers": {
+      "alternates": [],
+      "abbreviations": ["num", "nu", "nm", "nb"]
+    },
+    "Deuteronomy": {
+      "alternates": [],
+      "abbreviations": ["deut", "de", "dt"]
+    },
+    "Joshua": {
+      "alternates": [],
+      "abbreviations": ["josh", "jos", "jsh"]
+    },
+    "Judges": {
+      "alternates": [],
+      "abbreviations": ["judg", "jdg", "jg", "jdgs"]
+    },
+    "Ruth": {
+      "alternates": [],
+      "abbreviations": ["ru", "rth"]
+    },
+    "1 Samuel": {
+      "alternates": ["1 samuel"],
+      "abbreviations": ["1 sam", "1 sa", "1 sm"]
+    },
+    "2 Samuel": {
+      "alternates": ["2 samuel"],
+      "abbreviations": ["2 sam", "2 sa", "2 sm"]
+    },
+    "1 Kings": {
+      "alternates": ["1 king"],
+      "abbreviations": ["1 kgs", "1 ki", "1 kin"]
+    },
+    "2 Kings": {
+      "alternates": ["2 king"],
+      "abbreviations": ["2 kgs", "2 ki", "2 kin"]
+    },
+    "1 Chronicles": {
+      "alternates": ["1 chronicle"],
+      "abbreviations": ["1 chron", "1 chr", "1 ch"]
+    },
+    "2 Chronicles": {
+      "alternates": ["2 chronicle"],
+      "abbreviations": ["2 chron", "2 chr", "2 ch"]
+    },
+    "Ezra": {
+      "alternates": [],
+      "abbreviations": ["ezr", "ez"]
+    },
+    "Nehemiah": {
+      "alternates": [],
+      "abbreviations": ["neh", "ne"]
+    },
+    "Esther": {
+      "alternates": [],
+      "abbreviations": ["esth", "es", "est"]
+    },
+    "Job": {
+      "alternates": [],
+      "abbreviations": ["jb"]
+    },
+    "Psalms": {
+      "alternates": ["psalm"],
+      "abbreviations": ["ps", "psa", "pss", "psm"]
+    },
+    "Proverbs": {
+      "alternates": ["proverb"],
+      "abbreviations": ["prov", "pro", "prv", "pr"]
+    },
+    "Ecclesiastes": {
+      "alternates": [],
+      "abbreviations": ["eccl", "eccles", "ecc", "ec", "qoh"]
+    },
+    "Song of Solomon": {
+      "alternates": [
+        "song of songs",
+        "songs of solomon",
+        "song of song",
+        "canticles",
+        "canticle of canticles"
+      ],
+      "abbreviations": ["song", "songs", "sos", "so", "cant", "song of sol"]
+    },
+    "Isaiah": {
+      "alternates": [],
+      "abbreviations": ["isa", "is"]
+    },
+    "Jeremiah": {
+      "alternates": [],
+      "abbreviations": ["jer", "je", "jr"]
+    },
+    "Lamentations": {
+      "alternates": [],
+      "abbreviations": ["lam", "la"]
+    },
+    "Ezekiel": {
+      "alternates": [],
+      "abbreviations": ["ezek", "eze", "ezk"]
+    },
+    "Daniel": {
+      "alternates": [],
+      "abbreviations": ["dan", "da", "dn"]
+    },
+    "Hosea": {
+      "alternates": [],
+      "abbreviations": ["hos", "ho"]
+    },
+    "Joel": {
+      "alternates": [],
+      "abbreviations": ["jl"]
+    },
+    "Amos": {
+      "alternates": [],
+      "abbreviations": ["am"]
+    },
+    "Obadiah": {
+      "alternates": [],
+      "abbreviations": ["obad", "ob", "oba"]
+    },
+    "Jonah": {
+      "alternates": [],
+      "abbreviations": ["jon", "jnh"]
+    },
+    "Micah": {
+      "alternates": [],
+      "abbreviations": ["mic", "mc"]
+    },
+    "Nahum": {
+      "alternates": [],
+      "abbreviations": ["nah", "na"]
+    },
+    "Habakkuk": {
+      "alternates": [],
+      "abbreviations": ["hab", "hb"]
+    },
+    "Zephaniah": {
+      "alternates": [],
+      "abbreviations": ["zeph", "zep", "zp"]
+    },
+    "Haggai": {
+      "alternates": [],
+      "abbreviations": ["hag", "hg"]
+    },
+    "Zechariah": {
+      "alternates": [],
+      "abbreviations": ["zech", "zec", "zc"]
+    },
+    "Malachi": {
+      "alternates": [],
+      "abbreviations": ["mal", "ml"]
+    },
+    "Matthew": {
+      "alternates": [],
+      "abbreviations": ["matt", "mt"]
+    },
+    "Mark": {
+      "alternates": [],
+      "abbreviations": ["mk", "mr", "mrk"]
+    },
+    "Luke": {
+      "alternates": [],
+      "abbreviations": ["lk", "luk"]
+    },
+    "John": {
+      "alternates": [],
+      "abbreviations": ["jn", "jhn"]
+    },
+    "Acts": {
+      "alternates": ["acts of the apostles", "the acts"],
+      "abbreviations": ["ac", "act"]
+    },
+    "Romans": {
+      "alternates": [],
+      "abbreviations": ["rom", "ro", "rm"]
+    },
+    "1 Corinthians": {
+      "alternates": [],
+      "abbreviations": ["1 cor", "1 co"]
+    },
+    "2 Corinthians": {
+      "alternates": [],
+      "abbreviations": ["2 cor", "2 co"]
+    },
+    "Galatians": {
+      "alternates": [],
+      "abbreviations": ["gal", "ga"]
+    },
+    "Ephesians": {
+      "alternates": [],
+      "abbreviations": ["eph", "ephes"]
+    },
+    "Philippians": {
+      "alternates": [],
+      "abbreviations": ["phil", "php", "pp"]
+    },
+    "Colossians": {
+      "alternates": [],
+      "abbreviations": ["col"]
+    },
+    "1 Thessalonians": {
+      "alternates": [],
+      "abbreviations": ["1 thess", "1 thes", "1 th"]
+    },
+    "2 Thessalonians": {
+      "alternates": [],
+      "abbreviations": ["2 thess", "2 thes", "2 th"]
+    },
+    "1 Timothy": {
+      "alternates": [],
+      "abbreviations": ["1 tim", "1 ti"]
+    },
+    "2 Timothy": {
+      "alternates": [],
+      "abbreviations": ["2 tim", "2 ti"]
+    },
+    "Titus": {
+      "alternates": [],
+      "abbreviations": ["tit", "ti"]
+    },
+    "Philemon": {
+      "alternates": [],
+      "abbreviations": ["philem", "phm", "pm"]
+    },
+    "Hebrews": {
+      "alternates": [],
+      "abbreviations": ["heb"]
+    },
+    "James": {
+      "alternates": [],
+      "abbreviations": ["jas", "jm"]
+    },
+    "1 Peter": {
+      "alternates": [],
+      "abbreviations": ["1 pet", "1 pe", "1 pt"]
+    },
+    "2 Peter": {
+      "alternates": [],
+      "abbreviations": ["2 pet", "2 pe", "2 pt"]
+    },
+    "1 John": {
+      "alternates": [],
+      "abbreviations": ["1 jn", "1 jhn", "1 joh"]
+    },
+    "2 John": {
+      "alternates": [],
+      "abbreviations": ["2 jn", "2 jhn", "2 joh"]
+    },
+    "3 John": {
+      "alternates": [],
+      "abbreviations": ["3 jn", "3 jhn", "3 joh"]
+    },
+    "Jude": {
+      "alternates": [],
+      "abbreviations": ["jud", "jd"]
+    },
+    "Revelation": {
+      "alternates": [
+        "revelations",
+        "revelation of john",
+        "revelation of jesus christ",
+        "the revelation"
+      ],
+      "abbreviations": ["rev", "re"]
+    }
+  }
+}
