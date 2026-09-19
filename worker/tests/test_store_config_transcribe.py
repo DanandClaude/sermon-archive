@@ -127,7 +127,7 @@ class TestConfig:
             "fake", "whisper", "large-v3", "int8",
         )  # fmt: skip
         assert cfg.allow_model_download is False
-        assert cfg.transcribe_source == "cleaned"
+        assert cfg.transcribe_source == "original"
 
     def test_real_mode_is_refused_outside_production(self):
         with pytest.raises(ConfigError, match="only allowed when NODE_ENV=production"):
@@ -324,3 +324,191 @@ class TestFakeTranscriber:
             make_transcriber(from_env({**BASE_ENV, "TRANSCRIBER": "fake"})).name == "fake:scripted"
         )
         assert make_transcriber(from_env(BASE_ENV)).name == "faster-whisper:large-v3:int8"
+
+
+class TestMlxWhisperTranscriber:
+    """The GPU library is stubbed, so these run on any machine."""
+
+    @pytest.fixture()
+    def stub(self, monkeypatch):
+        import sys
+
+        calls: list[dict] = []
+        result = {
+            "text": " Turn to Hebrews.",
+            "segments": [
+                {
+                    "start": 0.0, "end": 2.0, "text": " Turn to Hebrews.",
+                    "words": [
+                        {"word": " Turn", "start": 0.0, "end": 0.4, "probability": 0.99},
+                        {"word": " to", "start": 0.4, "end": 0.6, "probability": 0.41},
+                        {"word": " Hebrews.", "start": 0.6, "end": 2.0},
+                    ],
+                }
+            ],
+        }  # fmt: skip
+        module = SimpleNamespace(
+            transcribe=lambda path, **kw: (calls.append({"path": path, **kw}), result)[1]
+        )
+        monkeypatch.setitem(sys.modules, "mlx_whisper", module)
+        return calls
+
+    def test_asks_for_word_timings_and_guards_against_hallucination(self, stub, tmp_path):
+        from sermon_worker.transcribe import MlxWhisperTranscriber
+
+        t = MlxWhisperTranscriber(model_path="/models/turbo")
+        t.transcribe(tmp_path / "a.mp3", prompt="P", on_progress=lambda p: None)
+        kw = stub[0]
+        assert kw["path_or_hf_repo"] == "/models/turbo" and kw["word_timestamps"] is True
+        assert kw["language"] == "en" and kw["initial_prompt"] == "P"
+        assert kw["condition_on_previous_text"] is False
+        assert kw["hallucination_silence_threshold"] == 2.0
+
+    def test_converts_the_result_and_reports_progress(self, stub, tmp_path):
+        from sermon_worker.transcribe import MlxWhisperTranscriber
+
+        seen: list[float] = []
+        result = MlxWhisperTranscriber(model_path="/m").transcribe(
+            tmp_path / "a.mp3", prompt="", on_progress=seen.append
+        )
+        words = result.segments[0].words
+        assert [w.w for w in words] == [" Turn", " to", " Hebrews."]
+        assert words[2].prob == 1.0  # no probability given: treated as certain
+        assert result.low_confidence(0.5) == [[0, 1]]
+        assert result.model == "mlx-whisper:whisper-large-v3-turbo" and result.duration == 2.0
+        assert seen == sorted(seen) and seen[-1] == 0.99
+
+    def test_an_empty_prompt_is_not_sent(self, stub, tmp_path):
+        from sermon_worker.transcribe import MlxWhisperTranscriber
+
+        MlxWhisperTranscriber(model_path="/m").transcribe(
+            tmp_path / "a", prompt="", on_progress=lambda p: None
+        )
+        assert stub[0]["initial_prompt"] is None
+
+    def test_looks_only_in_the_local_cache_unless_downloading_is_allowed(
+        self, stub, monkeypatch, tmp_path
+    ):
+        import huggingface_hub
+
+        from sermon_worker.transcribe import MlxWhisperTranscriber
+
+        seen = {}
+
+        def snap(repo, **kw):
+            seen.update(kw, repo=repo)
+            return "/cache/snapshot"
+
+        monkeypatch.setattr(huggingface_hub, "snapshot_download", snap)
+        MlxWhisperTranscriber().transcribe(tmp_path / "a", prompt="", on_progress=lambda p: None)
+        assert seen["local_files_only"] is True and stub[0]["path_or_hf_repo"] == "/cache/snapshot"
+        MlxWhisperTranscriber(allow_download=True).transcribe(
+            tmp_path / "a", prompt="", on_progress=lambda p: None
+        )
+        assert seen["local_files_only"] is False
+
+    def test_a_missing_model_is_explained_not_downloaded(self, stub, monkeypatch, tmp_path):
+        import huggingface_hub
+
+        from sermon_worker.transcribe import MlxWhisperTranscriber
+
+        def missing(*a, **k):
+            raise OSError("not cached")
+
+        monkeypatch.setattr(huggingface_hub, "snapshot_download", missing)
+        with pytest.raises(
+            ModelNotAvailable, match="fetch_model mlx-community/whisper-large-v3-turbo"
+        ):
+            MlxWhisperTranscriber().transcribe(
+                tmp_path / "a", prompt="", on_progress=lambda p: None
+            )
+        assert stub == []  # the library was never asked to transcribe
+
+    def test_says_what_to_install_when_the_mlx_library_is_missing(self, monkeypatch, tmp_path):
+        import sys
+
+        from sermon_worker.transcribe import MlxWhisperTranscriber
+
+        monkeypatch.setitem(sys.modules, "mlx_whisper", None)  # makes `import mlx_whisper` fail
+        with pytest.raises(ModelNotAvailable, match=r"worker\[mlx\]"):
+            MlxWhisperTranscriber(model_path="/m").transcribe(
+                tmp_path / "a", prompt="", on_progress=lambda p: None
+            )
+
+    def test_is_chosen_by_config(self):
+        from sermon_worker.transcribe import MlxWhisperTranscriber
+
+        t = make_transcriber(
+            from_env({**BASE_ENV, "TRANSCRIBER": "mlx", "MLX_MODEL": "org/some-model"})
+        )
+        assert isinstance(t, MlxWhisperTranscriber) and t.repo == "org/some-model"
+        assert (
+            from_env({**BASE_ENV, "TRANSCRIBER": "mlx"}).mlx_model
+            == "mlx-community/whisper-large-v3-turbo"
+        )
+
+
+class TestResegmented:
+    @staticmethod
+    def long_segment(sentences, per_word=0.5):
+        words, t = [], 0.0
+        for sentence in sentences:
+            for w in sentence.split():
+                words.append(Word(f" {w}", t, t + per_word, 0.9))
+                t += per_word
+        return Segment(0.0, t, " ".join(sentences), words)
+
+    def result(self, *segments):
+        return TranscriptResult(list(segments), "en", "m", 60.0)
+
+    def test_splits_a_long_segment_at_sentence_ends(self):
+        sentences = [
+            "Turn with me to Hebrews thirteen.",
+            "Obey them that have the rule over you.",
+            "Watch for your souls as they that must give account.",
+            "That is a gift.",
+        ]
+        seg = self.long_segment(sentences)  # 26 words -> 13 s at 0.5 s; make it long enough
+        seg = self.long_segment(sentences * 3)
+        out = self.result(seg).resegmented(target=10, min_break=4)
+        assert len(out.segments) > 2
+        assert all(s.text.rstrip().endswith((".", "?", "!")) for s in out.segments)
+
+    def test_never_drops_reorders_or_overlaps_words(self):
+        seg = self.long_segment(["One two three four five six seven eight nine ten."] * 6)
+        out = self.result(seg).resegmented(target=10, min_break=4)
+        original = [w.w for w in seg.words]
+        assert [w.w for s in out.segments for w in s.words] == original
+        for a, b in zip(out.segments, out.segments[1:], strict=False):
+            assert a.end <= b.start + 1e-9
+
+    def test_forces_a_cut_when_one_sentence_runs_on(self):
+        seg = self.long_segment(["word " * 60 + "end."])  # no sentence end for 30 seconds
+        out = self.result(seg).resegmented(target=12, min_break=4)
+        assert len(out.segments) >= 2
+        assert all(s.end - s.start <= 12.6 for s in out.segments)
+
+    def test_leaves_short_segments_and_segments_without_words_alone(self):
+        short = self.long_segment(["Amen."])
+        wordless = Segment(0.0, 40.0, "no timings for this one", [])
+        out = self.result(short, wordless).resegmented()
+        assert out.segments == [short, wordless]
+
+    def test_low_confidence_positions_follow_the_new_segments(self):
+        seg = self.long_segment(
+            ["First sentence here."] + ["Filler words go on and on."] * 6 + ["Last sentence."]
+        )
+        seg.words[1].prob = 0.2  # the second word of the first sentence
+        seg.words[-1].prob = 0.1
+        out = self.result(seg).resegmented(target=10, min_break=4)
+        flagged = out.low_confidence(0.5)
+        assert flagged[0] == [0, 1] and flagged[-1] == [
+            len(out.segments) - 1,
+            len(out.segments[-1].words) - 1,
+        ]
+
+    def test_text_is_rebuilt_without_doubled_spaces(self):
+        out = self.result(self.long_segment(["Hello world."] * 12)).resegmented(
+            target=6, min_break=2
+        )
+        assert all("  " not in s.text and s.text == s.text.strip() for s in out.segments)

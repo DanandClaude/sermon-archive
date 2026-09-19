@@ -2,8 +2,8 @@
 
 Takes each uploaded tape through two steps and writes the results back:
 
-1. **Clean up.** High-pass, mains-hum notches, FFT denoise, click removal, then loudness normalisation to about -16 LUFS. Writes a 192 kbps mono MP3 and waveform data for the original and the cleaned copy. The original is never touched.
-2. **Transcribe.** faster-whisper (CTranslate2) with word timings, voice-activity detection and guards against Whisper inventing text over hiss and silence. Words it was unsure of are flagged.
+1. **Clean up.** A gentle rumble filter, hum notches only if hum is detected, and loudness normalisation to about -16 LUFS. Denoising, click removal and declipping are available but off by default (see below). Writes a 192 kbps mono MP3 and waveform data for the original and the cleaned copy. The original is never touched.
+2. **Transcribe.** Whisper with word timings and guards against inventing text over hiss and silence. Words it was unsure of are flagged, and long segments are split at sentence ends so timestamps are useful. Two engines: **MLX** (the Mac's GPU, fast) or **faster-whisper** (CPU, runs anywhere). By default it transcribes the original audio.
 
 It runs on this Mac (or any Linux machine), talks only to your Postgres database and your upload storage, and sends nothing to a third party. The app queues work in a `jobs` table; the worker claims jobs from it, so it can be stopped and started at any time and several workers can run at once.
 
@@ -11,6 +11,7 @@ It runs on this Mac (or any Linux machine), talks only to your Postgres database
 
 ```sh
 npm run worker:install        # Python virtual environment in worker/.venv (Python 3.12 or newer)
+npm run worker:install-mlx    # Apple Silicon Macs only: adds the GPU engine (a large install; it brings PyTorch)
 brew install ffmpeg           # if it isn't installed
 ```
 
@@ -27,32 +28,51 @@ npm run worker:once           # process what is queued, then exit
 
 The app's queue shows real progress. If the worker isn't running, the queue says processing is paused and your tapes wait safely. When the worker is offline for more than 90 seconds the app notices; it checks in every 15.
 
-## The Whisper model
+## Engines and models
 
-The worker will not download anything by itself. Download the model once, on purpose:
+The worker never downloads anything by itself. Set `TRANSCRIBER` in `.env.local`:
 
-```sh
-worker/run.sh -m sermon_worker.fetch_model large-v3     # about 3 GB
-```
+| `TRANSCRIBER`       | Runs on       | Model                                                        | Notes                                                                                      |
+| ------------------- | ------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `mlx`               | the Mac's GPU | `MLX_MODEL`, default `mlx-community/whisper-large-v3-turbo`  | Apple Silicon only. Needs `npm run worker:install-mlx`.                                    |
+| `whisper` (default) | the CPU       | `WHISPER_MODEL` (default `large-v3`) or `WHISPER_MODEL_PATH` | Works on any machine, including a Linux server.                                            |
+| `fake`              | nothing       | none                                                         | Development only: canned text so the pipeline runs without a model. Refused in production. |
 
-Then it is used automatically (`WHISPER_MODEL=large-v3`, `WHISPER_COMPUTE=int8`). Until then a transcription job fails with "The transcription model is not installed on the worker" and can be retried from the app once the model is there.
+Each engine needs its own model file format, and models kept by other Whisper apps are not interchangeable: MLX models (used by `mlx_whisper`) work with `mlx`, faster-whisper models (a folder with `model.bin`) work with `whisper`, and whisper.cpp `ggml-*.bin` files (used by apps like Vibe) work with neither. Models in the Hugging Face cache (`~/.cache/huggingface/hub`) are found automatically and used offline.
 
-**Which model files work.** The worker needs the CTranslate2 format that faster-whisper uses (a folder with `model.bin`). Models kept by other Whisper apps do not work: the MLX format (used by `mlx_whisper`) and the whisper.cpp `ggml-*.bin` format (used by apps like Vibe) are different files. If you already have `Systran/faster-whisper-medium` in `~/.cache/huggingface/hub`, set `WHISPER_MODEL=medium` and it is used with no download.
-
-**Measured speed** (Apple M5, 10 cores, CPU, int8, the `medium` model): about 3x real time on clear speech. A 45-minute tape side takes roughly 15 minutes. This was measured on a minute of clean synthetic speech, not a noisy cassette, so treat it as a best case. `large-v3` is larger and should be slower; it has not been measured here.
-
-To try the pipeline without a model, set `TRANSCRIBER=fake`. It writes canned text and is refused when `NODE_ENV=production`.
-
-## Tuning the cleanup
-
-The defaults are a starting point. Compare them on a real tape:
+Download a model on purpose, once:
 
 ```sh
-worker/run.sh -m sermon_worker.experiments tape.mp3 --out /tmp/tape-test
-worker/run.sh -m sermon_worker.experiments tape.mp3 --out /tmp/tape-test --transcribe   # needs the model
+worker/run.sh -m sermon_worker.fetch_model mlx-community/whisper-large-v3-turbo   # MLX, about 1.5 GB
+worker/run.sh -m sermon_worker.fetch_model large-v3                              # faster-whisper, about 3 GB
 ```
 
-It writes one MP3 per variant and prints loudness and how much hum is left. With `--transcribe` it also prints the average word confidence per variant. Heavy denoising can sound cleaner but transcribe worse, so listen and check the number. Change the winning settings in `CleanConfig` (`src/sermon_worker/clean.py`).
+**Measured on two real tape clips** (about 100 and 140 seconds, Apple M5):
+
+| Engine                        | Speed                                                                             | Result                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| MLX `large-v3-turbo`          | about 13 to 16x real time (a 45-minute side in under 4 minutes, cleanup included) | confidence 0.977; got the KJV scripture wording right                                |
+| faster-whisper `medium` (CPU) | about 4x real time                                                                | confidence 0.937; agreed on 97.8% of words, and the differences were medium's errors |
+
+Two clips from one speaker is a small sample, so treat it as good early evidence, not a guarantee. A second opt-in test runs each engine on generated speech: `WHISPER_TEST_MODEL=medium WHISPER_TEST_MLX=1 worker/run.sh -m pytest tests/test_real_model.py` (macOS only; never downloads).
+
+## What the cleanup does, and why
+
+The defaults come from testing on real tapes (`TAPE002` and `TAPE003`), where **transcription was as good or better on audio that had been changed the least**:
+
+- The clips had no mains hum, and a notch at 120 or 180 Hz cuts into a male voice. So hum notches are added only when hum is detected (a narrow spike at 50 or 60 Hz and its multiples).
+- Denoising and click removal did not help transcription and slightly lowered its confidence, so they are off.
+- The clips were recorded very hot (about -7 LUFS, 3% of samples clipped). Normalising to -16 LUFS is what makes the cleaned copy comfortable to listen to. `declip` is available for tapes like this.
+- So the worker transcribes the **original** audio by default (`TRANSCRIBE_SOURCE=original`). Set `cleaned` for a tape too noisy to transcribe as recorded.
+
+Cleanup is therefore mostly for listening. To compare versions by ear, and by number, on any tape:
+
+```sh
+worker/run.sh -m sermon_worker.experiments /full/path/to/tape.mp3 --out /full/path/to/folder
+worker/run.sh -m sermon_worker.experiments /full/path/to/tape.mp3 --out /full/path/to/folder --transcribe
+```
+
+It writes one MP3 per variant (default, declip, denoise, and so on) and prints loudness and hum. With `--transcribe` it also prints word confidence. Use full paths, because the launcher changes directory. Change the winning settings in `CleanConfig` (`src/sermon_worker/clean.py`).
 
 Tape wobble and flutter are not corrected.
 
@@ -78,7 +98,7 @@ Same layout as the app: originals under `originals/`, and everything the worker 
 ## Tests
 
 ```sh
-npm run worker:test           # 119 tests: real ffmpeg, a real Postgres database, a scripted transcriber
+npm run worker:test           # about 140 tests: real ffmpeg, a real Postgres database, scripted and stubbed transcribers
 npm run worker:lint
 ```
 

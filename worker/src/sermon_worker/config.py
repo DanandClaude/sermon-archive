@@ -44,18 +44,21 @@ class Config:
     heartbeat_seconds: float = 15.0
     # A running job with no heartbeat for this long is taken back and retried.
     stale_job_seconds: int = 600
-    # "whisper" runs faster-whisper. "fake" produces canned text so the pipeline can be tried
-    # without a model; it is refused in production.
+    # "whisper" runs faster-whisper on the CPU (works everywhere). "mlx" runs Whisper on an Apple
+    # Silicon GPU (macOS only, much faster). "fake" produces canned text so the pipeline can be
+    # tried without a model; it is refused in production.
     transcriber: str = "whisper"
     whisper_model: str = "large-v3"
+    mlx_model: str = "mlx-community/whisper-large-v3-turbo"
     whisper_model_path: str | None = None
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
     whisper_cpu_threads: int = 0
     allow_model_download: bool = False
-    # Which audio to transcribe. The cleaned copy usually reads better; fall back to the original
-    # if a tape transcribes worse after cleanup.
-    transcribe_source: str = "cleaned"
+    # Which audio to transcribe. The original by default: on real tapes it transcribed as well as
+    # any cleaned version, and cleanup (denoising especially) could only make it worse. Choose
+    # "cleaned" for a tape that is too noisy to transcribe as recorded.
+    transcribe_source: str = "original"
     low_confidence_threshold: float = 0.5
 
     @property
@@ -79,11 +82,11 @@ def from_env(environ: dict[str, str] | None = None) -> Config:
         raise ConfigError("S3_BUCKET and S3_REGION are required when ADAPTER_MODE=real.")
 
     transcriber = env.get("TRANSCRIBER", "whisper")
-    if transcriber not in ("whisper", "fake"):
-        raise ConfigError(f"TRANSCRIBER must be whisper or fake, not {transcriber!r}.")
+    if transcriber not in ("whisper", "mlx", "fake"):
+        raise ConfigError(f"TRANSCRIBER must be whisper, mlx or fake, not {transcriber!r}.")
     if transcriber == "fake" and node_env == "production":
         raise ConfigError("TRANSCRIBER=fake is not allowed in production.")
-    source = env.get("TRANSCRIBE_SOURCE", "cleaned")
+    source = env.get("TRANSCRIBE_SOURCE", "original")
     if source not in ("cleaned", "original"):
         raise ConfigError("TRANSCRIBE_SOURCE must be cleaned or original.")
 
@@ -104,6 +107,7 @@ def from_env(environ: dict[str, str] | None = None) -> Config:
         stale_job_seconds=int(env.get("STALE_JOB_SECONDS", "600")),
         transcriber=transcriber,
         whisper_model=env.get("WHISPER_MODEL", "large-v3"),
+        mlx_model=env.get("MLX_MODEL", "mlx-community/whisper-large-v3-turbo"),
         whisper_model_path=env.get("WHISPER_MODEL_PATH") or None,
         whisper_device=env.get("WHISPER_DEVICE", "cpu"),
         whisper_compute_type=env.get("WHISPER_COMPUTE", "int8"),

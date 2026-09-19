@@ -57,3 +57,22 @@ def test_transcribes_speech_with_word_timings_and_the_scripture_vocabulary(speec
     assert all(0 <= w.prob <= 1 for w in words)
     assert seen == sorted(seen) and seen[-1] <= 0.99
     assert result.model.startswith("faster-whisper:")
+
+
+@pytest.mark.skipif(
+    not os.environ.get("WHISPER_TEST_MLX"),
+    reason="set WHISPER_TEST_MLX=1 to run the Apple GPU engine (needs the mlx extra and a cached model)",
+)
+def test_the_mac_gpu_engine_transcribes_speech_with_word_timings(speech):
+    from sermon_worker.transcribe import MlxWhisperTranscriber
+
+    os.environ["HF_HUB_OFFLINE"] = "1"  # never download
+    seen: list[float] = []
+    result = MlxWhisperTranscriber().transcribe(
+        speech, prompt=build_prompt("Pastor Lee"), on_progress=seen.append
+    )
+    text = result.full_text.lower()
+    assert "hebrews" in text and "obey them that have the rule over you" in text
+    words = [w for s in result.segments for w in s.words]
+    assert len(words) > 30 and all(0 <= w.prob <= 1 for w in words)
+    assert result.model.startswith("mlx-whisper:") and seen == sorted(seen)

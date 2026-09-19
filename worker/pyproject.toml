@@ -12,6 +12,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+# Apple Silicon only: transcribes on the Mac's GPU, several times faster than the CPU.
+mlx = ["mlx-whisper>=0.4"]
 
 [build-system]
 requires = ["setuptools>=68"]

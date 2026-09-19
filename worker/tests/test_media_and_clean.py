@@ -4,9 +4,9 @@ import hashlib
 import math
 
 import pytest
-from conftest import decode_mono, integrated_lufs, tone_magnitude
+from conftest import decode_mono, ffmpeg, integrated_lufs, tone_magnitude
 
-from sermon_worker.clean import CleanConfig, build_filters, clean_audio, parse_loudnorm
+from sermon_worker.clean import CleanConfig, build_filters, clean_audio, detect_hum, parse_loudnorm
 from sermon_worker.media import MediaError, compute_peaks, probe, run_ffmpeg
 
 
@@ -68,20 +68,70 @@ class TestPeaks:
 
 
 class TestBuildFilters:
-    def test_default_chain_is_in_the_documented_order(self):
-        chain = build_filters(CleanConfig())
-        names = [f.split("=")[0] for f in chain]
-        assert names == ["highpass", "bandreject", "bandreject", "bandreject", "afftdn", "adeclick"]
-        assert chain[0] == "highpass=f=70"
-        assert {f.split(":")[0] for f in chain[1:4]} == {
-            "bandreject=f=60",
-            "bandreject=f=120",
-            "bandreject=f=180",
-        }
+    def test_the_default_chain_is_just_a_rumble_filter(self):
+        assert build_filters(CleanConfig()) == ["highpass=f=70"]
 
-    def test_can_switch_stages_off_and_add_50_hz_hum(self):
-        chain = build_filters(CleanConfig(denoise=False, declick=False, hum_hz=(50.0, 100.0)))
+    def test_detected_hum_is_notched_and_a_forced_setting_overrides_it(self):
+        chain = build_filters(CleanConfig(), hum=(60.0, 120.0))
         assert [f.split("=")[0] for f in chain] == ["highpass", "bandreject", "bandreject"]
+        forced = build_filters(CleanConfig(hum_hz=(50.0,)), hum=(60.0, 120.0))
+        assert forced[1].startswith("bandreject=f=50")
+        assert len(forced) == 2
+        assert build_filters(CleanConfig(hum_hz=()), hum=(60.0,)) == ["highpass=f=70"]
+
+    def test_optional_stages_come_in_the_documented_order(self):
+        chain = build_filters(CleanConfig(declip=True, denoise=True, declick=True), hum=(60.0,))
+        names = [f.split("=")[0] for f in chain]
+        # declip first, because filtering a clipped signal spreads the distortion
+        assert names == ["adeclip", "highpass", "bandreject", "afftdn", "adeclick"]
+
+
+class TestDetectHum:
+    def synth(self, audio_dir, name, expr):
+        path = audio_dir / name
+        ffmpeg("-filter_complex", expr, "-ac", "1", str(path))
+        return path
+
+    VOICE = "sine=f=300:d=10:r=44100,volume=3[a]"
+
+    def test_finds_60_hz_hum(self, audio_dir):
+        p = self.synth(
+            audio_dir,
+            "d60.wav",
+            f"{self.VOICE};sine=f=60:d=10:r=44100,volume=3[b];anoisesrc=d=10:a=0.01:r=44100[c];[a][b][c]amix=inputs=3:normalize=0",
+        )
+        assert detect_hum(p) == (60.0,)
+
+    def test_finds_50_hz_hum_and_its_harmonic(self, audio_dir):
+        p = self.synth(
+            audio_dir,
+            "d50.wav",
+            f"{self.VOICE};sine=f=50:d=10:r=44100,volume=3[b];sine=f=100:d=10:r=44100[h];anoisesrc=d=10:a=0.01:r=44100[c];[a][b][h][c]amix=inputs=4:normalize=0",
+        )
+        assert detect_hum(p) == (50.0, 100.0)
+
+    def test_finds_nothing_in_clean_audio(self, audio_dir):
+        p = self.synth(
+            audio_dir,
+            "dclean.wav",
+            f"{self.VOICE};anoisesrc=d=10:a=0.01:r=44100[c];[a][c]amix=inputs=2:normalize=0",
+        )
+        assert detect_hum(p) == ()
+
+    def test_a_low_voice_is_not_mistaken_for_hum(self, audio_dir):
+        # a 120 Hz "male fundamental" with wobble and harmonics, like speech, but no 60 Hz
+        p = self.synth(
+            audio_dir,
+            "dvoice.wav",
+            "sine=f=120:d=10:r=44100,vibrato=f=5:d=0.3,volume=3[a];sine=f=240:d=10:r=44100,vibrato=f=5:d=0.3,volume=1.5[b];anoisesrc=d=10:a=0.01:r=44100[c];[a][b][c]amix=inputs=3:normalize=0",
+        )
+        assert detect_hum(p) == ()
+
+    def test_returns_nothing_for_unreadable_or_very_short_audio(self, not_audio, tmp_path):
+        assert detect_hum(not_audio) == ()
+        short = tmp_path / "short.wav"
+        ffmpeg("-f", "lavfi", "-i", "sine=f=60:d=0.5", str(short))
+        assert detect_hum(short) == ()
 
 
 class TestParseLoudnorm:

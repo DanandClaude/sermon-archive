@@ -17,7 +17,6 @@ import re
 import subprocess
 import sys
 import tempfile
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -27,12 +26,13 @@ from .media import probe
 
 VARIANTS: dict[str, CleanConfig] = {
     "default": CleanConfig(),
-    "no-denoise": CleanConfig(denoise=False),
-    "light-denoise": CleanConfig(denoise_reduction_db=6.0, declick=False),
-    "strong-denoise": CleanConfig(denoise_reduction_db=20.0),
-    "hum-50hz": replace(CleanConfig(), hum_hz=(50.0, 100.0, 150.0)),
-    "wide-notch": CleanConfig(hum_q=10.0),
-    "narrow-notch": CleanConfig(hum_q=40.0),
+    "declip": CleanConfig(declip=True),
+    "denoise": CleanConfig(denoise=True),
+    "denoise+declip": CleanConfig(declip=True, denoise=True),
+    "declick": CleanConfig(declick=True),
+    "strong-denoise": CleanConfig(denoise=True, denoise_reduction_db=20.0),
+    "hum-60hz": CleanConfig(hum_hz=(60.0, 120.0, 180.0)),
+    "hum-50hz": CleanConfig(hum_hz=(50.0, 100.0, 150.0)),
 }
 
 

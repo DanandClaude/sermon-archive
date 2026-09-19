@@ -247,17 +247,17 @@ class TestTranscribeJob:
         assert run_until_idle(make_runner(conn, config, store, Scripted())) == 2
         assert sermon_row(conn, sermon)["status"] == "analyzing"
 
-    def test_transcribes_the_cleaned_copy_by_default(self, conn, config, store, cleaned):
-        sermon, original_key = cleaned
-        spy = SpyStore(store)
-        make_runner(conn, config, spy).run_once()
-        assert spy.downloads[0].startswith(f"cleaned/{sermon}/")
-
-    def test_can_be_told_to_use_the_original_instead(self, conn, config, store, cleaned):
+    def test_transcribes_the_original_by_default(self, conn, config, store, cleaned):
         _, original_key = cleaned
         spy = SpyStore(store)
-        make_runner(conn, replace(config, transcribe_source="original"), spy).run_once()
+        make_runner(conn, config, spy).run_once()
         assert spy.downloads == [original_key]
+
+    def test_can_be_told_to_use_the_cleaned_copy_instead(self, conn, config, store, cleaned):
+        sermon, _ = cleaned
+        spy = SpyStore(store)
+        make_runner(conn, replace(config, transcribe_source="cleaned"), spy).run_once()
+        assert spy.downloads[0].startswith(f"cleaned/{sermon}/")
 
     def test_primes_the_model_with_scripture_and_the_speaker(self, conn, config, store, cleaned):
         model = Scripted()

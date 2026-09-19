@@ -10,25 +10,36 @@ from __future__ import annotations
 import json
 import math
 import re
+import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
+
 from .media import MediaError, probe, run_ffmpeg
+
+# A narrow spike this many dB above its neighbours in the average spectrum counts as hum.
+HUM_SPIKE_DB = 10.0
 
 
 @dataclass(frozen=True)
 class CleanConfig:
+    # Repair clipped peaks. Placed first: filtering a clipped signal spreads the distortion.
+    declip: bool = False
     highpass_hz: float = 70.0
-    # Mains hum and its harmonics. 60 Hz for US recordings; add 50, 100 and 150 for others.
-    hum_hz: tuple[float, ...] = (60.0, 120.0, 180.0)
+    # Mains hum and its harmonics. None (the default) means "look for it first": notches are added
+    # only if hum is actually present, because a notch at 120 or 180 Hz also cuts into a male voice.
+    # Give a tuple such as (60.0, 120.0, 180.0) to force specific notches, or () for none.
+    hum_hz: tuple[float, ...] | None = None
     # Notch sharpness. Lower is wider. Tape speed drift makes hum wander, so a very narrow notch
     # (40) can miss it; this middle value is a starting point to tune on real tapes.
     hum_q: float = 20.0
-    denoise: bool = True
+    # Off by default: on real tapes, denoising did not help transcription and slightly hurt it.
+    denoise: bool = False
     denoise_reduction_db: float = 12.0
     denoise_floor_db: float = -40.0
-    declick: bool = True
+    declick: bool = False
     target_lufs: float = -16.0
     true_peak_db: float = -1.5
     loudness_range: float = 11.0
@@ -38,10 +49,58 @@ class CleanConfig:
     extra_filters: tuple[str, ...] = field(default_factory=tuple)
 
 
-def build_filters(cfg: CleanConfig) -> list[str]:
+HUM_FRAME = 8192  # about one second at 8 kHz, so hum shows as a sharp spike ~1 Hz wide
+
+
+def detect_hum(path: Path, max_seconds: float = 180.0) -> tuple[float, ...]:
+    """Returns the mains-hum frequencies to notch (for example (60.0, 120.0, 180.0)), or () if none.
+
+    Hum is a very narrow, steady spike at 50 or 60 Hz and its multiples. Voices are broad, so a
+    spike far above its own neighbours in the average spectrum is hum, not speech.
+    """
+    proc = subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-t", str(max_seconds), "-i", str(path),
+         "-map", "0:a:0", "-ac", "1", "-ar", "8000", "-f", "f32le", "-"],
+        capture_output=True,
+    )  # fmt: skip
+    samples = np.frombuffer(proc.stdout, dtype="<f4")
+    if proc.returncode != 0 or samples.size < HUM_FRAME * 2:
+        return ()
+    window = np.hanning(HUM_FRAME)
+    frames = samples[: samples.size // HUM_FRAME * HUM_FRAME].reshape(-1, HUM_FRAME)
+    power = (np.abs(np.fft.rfft(frames * window)) ** 2).mean(axis=0)
+    freqs = np.fft.rfftfreq(HUM_FRAME, 1 / 8000)
+
+    def spike_db(hz: float) -> float:
+        peak = power[(freqs >= hz - 1.5) & (freqs <= hz + 1.5)].max()
+        around = power[
+            ((freqs >= hz - 12) & (freqs <= hz - 4)) | ((freqs >= hz + 4) & (freqs <= hz + 12))
+        ]
+        return float(10 * np.log10(max(peak, 1e-20) / max(np.median(around), 1e-20)))
+
+    best: tuple[float, ...] = ()
+    best_score = 0.0
+    for mains in (50.0, 60.0):
+        spikes = [spike_db(mains * k) for k in (1, 2, 3)]
+        strong = [k + 1 for k, db in enumerate(spikes) if db >= HUM_SPIKE_DB]
+        # Hum shows up strongly at the fundamental, or at several harmonics together.
+        if (1 in strong) or len(strong) >= 2:
+            score = max(spikes)
+            if score > best_score:
+                best, best_score = (
+                    tuple(mains * (k + 1) for k, db in enumerate(spikes) if db >= HUM_SPIKE_DB - 4),
+                    score,
+                )
+    return best
+
+
+def build_filters(cfg: CleanConfig, hum: tuple[float, ...] | None = None) -> list[str]:
     """The filters before loudness normalisation, in order."""
-    filters = [f"highpass=f={cfg.highpass_hz:g}"]
-    for hz in cfg.hum_hz:
+    filters = ["adeclip"] if cfg.declip else []
+    filters.append(f"highpass=f={cfg.highpass_hz:g}")
+    # `hum` is what detect_hum found; a fixed cfg.hum_hz overrides it.
+    notches = cfg.hum_hz if cfg.hum_hz is not None else (hum or ())
+    for hz in notches:
         filters.append(f"bandreject=f={hz:g}:width_type=q:w={cfg.hum_q:g}")
     if cfg.denoise:
         filters.append(f"afftdn=nr={cfg.denoise_reduction_db:g}:nf={cfg.denoise_floor_db:g}:tn=1")
@@ -93,7 +152,8 @@ def clean_audio(
     """Writes a cleaned MP3 to `dest` and returns facts about it. The source is only read."""
     cfg = cfg or CleanConfig()
     info = probe(src)
-    chain = ",".join(build_filters(cfg))
+    hum = detect_hum(src) if cfg.hum_hz is None else ()
+    chain = ",".join(build_filters(cfg, hum))
 
     # Pass 1: run the same chain and measure loudness. Progress 0 to 0.35.
     measure_stderr = run_ffmpeg(
@@ -148,5 +208,6 @@ def clean_audio(
         "source_duration": info.duration,
         "measured_loudness": float(measured["input_i"]) if measured else None,
         "normalised": measured is not None,
+        "hum_notches": list(cfg.hum_hz if cfg.hum_hz is not None else hum),
         "filters": chain,
     }

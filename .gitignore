@@ -52,6 +52,7 @@ next-env.d.ts
 worker/.venv/
 worker/models/
 worker/**/__pycache__/
+worker/src/*.egg-info/
 worker/*.egg-info/
 worker/.pytest_cache/
 worker/.ruff_cache/

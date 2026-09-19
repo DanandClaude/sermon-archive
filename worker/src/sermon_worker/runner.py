@@ -213,6 +213,7 @@ class Runner:
                 src, prompt=prompt, on_progress=self._reporter(job, 0.02, 0.98)
             )
 
+        result = result.resegmented()
         if not result.full_text:
             raise NoSpeech("The transcriber found no speech.")
         cfg = pipeline.job_config("transcribe")
