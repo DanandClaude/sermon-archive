@@ -119,6 +119,21 @@ def reconcile_analysis(conn: psycopg.Connection) -> int:
     return len(rows)
 
 
+def reconcile_filing(conn: psycopg.Connection) -> int:
+    """Queues filing for approved sermons that never had a filing job, such as ones approved before
+    filing existed. A sermon whose filing failed is left for an admin to retry on purpose."""
+    rows = conn.execute(
+        """
+        INSERT INTO jobs (sermon_id, type)
+        SELECT s.id, 'file' FROM sermons s
+        WHERE s.status = 'approved' AND s.deleted_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.sermon_id = s.id AND j.type = 'file')
+        ON CONFLICT DO NOTHING RETURNING id
+        """
+    ).fetchall()
+    return len(rows)
+
+
 def advance_sermon(conn: psycopg.Connection, sermon_id: str, old: str, new: str) -> None:
     """Compare-and-set status change. Raises StageMoved if the sermon is no longer in `old`."""
     pipeline.assert_transition(old, new)
@@ -157,19 +172,30 @@ def fail_attempt(
         )
         return "retry"
 
-    running = pipeline.job_config(job.type)["runningStatus"]
-    pipeline.assert_transition(running, "failed")
+    cfg = pipeline.job_config(job.type)
+    running = cfg["runningStatus"]
+    # Most stages leave the sermon `failed`. Filing leaves it `approved` with a visible error, so
+    # it can be tried again without losing its place (SPEC §7).
+    settled = cfg.get("onFailure", {}).get("status", "failed")
+    pipeline.assert_transition(running, settled)
     with conn.transaction():
         conn.execute(
             "UPDATE jobs SET state = 'failed', locked_by = NULL, finished_at = now(), last_error = %s "
             "WHERE id = %s",
             (detail[:1000], job.id),
         )
-        conn.execute(
-            "UPDATE sermons SET status = 'failed', failed_stage = %s, last_error = %s, updated_at = now() "
-            "WHERE id = %s AND status = %s::sermon_status",
-            (running, friendly[:300], job.sermon_id, running),
-        )
+        if settled == "failed":
+            conn.execute(
+                "UPDATE sermons SET status = 'failed', failed_stage = %s, last_error = %s, updated_at = now() "
+                "WHERE id = %s AND status = %s::sermon_status",
+                (running, friendly[:300], job.sermon_id, running),
+            )
+        else:
+            conn.execute(
+                "UPDATE sermons SET status = %s::sermon_status, filing_error = %s, updated_at = now() "
+                "WHERE id = %s AND status = %s::sermon_status",
+                (settled, friendly[:300], job.sermon_id, running),
+            )
     return "failed"
 
 

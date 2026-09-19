@@ -51,6 +51,9 @@ def main(argv: list[str]) -> int:
     queued = queue.reconcile_analysis(conn)
     if queued:
         print(f"queued analysis for {queued} finished transcript(s)", flush=True)
+    waiting = queue.reconcile_filing(conn)
+    if waiting:
+        print(f"queued filing for {waiting} approved sermon(s)", flush=True)
     runner = Runner(conn, config, store, transcriber, heartbeat=heartbeat, analyzer=analyzer)
     try:
         if once:

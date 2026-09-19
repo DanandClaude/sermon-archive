@@ -104,7 +104,7 @@ from sermon_worker.store import LocalStore  # noqa: E402
 
 MIGRATIONS = Path(__file__).resolve().parents[2] / "drizzle"
 TABLES = (
-    "worker_heartbeats, analyses, scripture_refs, sermon_tags, tags, transcripts, jobs, uploads, "
+    "worker_heartbeats, storage_objects, verification_runs, storage_targets, analyses, scripture_refs, sermon_tags, tags, transcripts, jobs, uploads, "
     "audio_assets, sermons, "
     "login_tokens, sessions, audit_log, settings, users"
 )
@@ -206,3 +206,35 @@ def job_row(conn, job_id: str) -> dict:
 
 def sermon_row(conn, sermon_id: str) -> dict:
     return conn.execute("SELECT * FROM sermons WHERE id = %s", (sermon_id,)).fetchone()
+
+
+def encrypt_json(value: dict, key: bytes | None = None) -> str:
+    """Writes a value the way the app does, so the worker's decryption is tested on its format."""
+    import base64
+    import json as _json
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    from sermon_worker.secrets_box import secrets_key
+
+    key = key or secrets_key(None, False)
+    iv = os.urandom(12)
+    sealed = AESGCM(key).encrypt(iv, _json.dumps(value).encode(), None)
+    b64 = lambda b: base64.urlsafe_b64encode(b).rstrip(b"=").decode()  # noqa: E731
+    return f"v1.{b64(iv)}.{b64(sealed[-16:])}.{b64(sealed[:-16])}"
+
+
+def add_target(
+    conn, role: str, folder: Path | None, kind="local", account=None, config=None
+) -> str:
+    """Connects a storage target the way the app's Connections screen does."""
+    settings = config or {"kind": kind, "path": str(folder)}
+    row = conn.execute(
+        "INSERT INTO storage_targets (role, provider, encrypted_config, account_label, root_folder_name, "
+        "connected_at) VALUES (%s::storage_role, %s, %s, %s, %s, now()) RETURNING id",
+        (
+            role, kind, encrypt_json(settings), account or f"Development folder ({role})",
+            "Sermon Archive" if role == "shared" else "Sermon Archive Backup",
+        ),
+    ).fetchone()  # fmt: skip
+    return str(row["id"])

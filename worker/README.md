@@ -102,6 +102,20 @@ Runs after transcription (`analyze` job). Nothing here touches audio.
 - **What it will not overwrite.** A title already typed, a summary a person edited, a main passage already chosen, and passages a person added, corrected or deleted. Regenerate in the app queues an `analyze` job with `{"only": "summary"}`.
 - **Old transcripts.** On start, and every minute, the worker queues analysis for any sermon waiting at "analyzing" that has no job.
 
+## Filing and backup
+
+Approving a sermon queues a `file` job. The worker writes the sermon's files to the **shared archive drive** and the **admin backup**, each on its own account (`filing.py`, `providers.py`, `drive.py`):
+
+- Shared: `{decade}s/{year}/{stem}/{stem}.mp3, .txt, .srt, .json`. Backup: the same folder plus `{stem}_original.<ext>` (byte for byte) and `{stem}_transcript.json` (word timings).
+- Text and subtitles are rendered by `render.py`, a port of the app's renderer; `shared/transcript-cases.json` keeps them identical.
+- **Never overwrites.** A file that is already there with the same content is adopted, so a retry after a partial failure carries on where it stopped. A different file at the same path stops the job with a plain message.
+- Every file is read back and its checksum compared (MD5 for Drive) with our own SHA-256 also kept. Only then is the sermon marked `filed`. If either target fails, the sermon stays `approved` with the reason shown, and retries with backoff (an admin can press "File again").
+- Credentials are read from `storage_targets`, decrypted with `SECRETS_KEY` (`secrets_box.py`, format shared with the app and tested with `shared/secrets-cases.json`).
+- **Google Drive** uses ordinary folders and the `drive.file` scope (only what the app creates), so it needs no Google Workspace. It is refused unless `ADAPTER_MODE=real` in production; in development a target is a local folder. The Drive provider is tested against a stand-in Google service, never the real one.
+- **Verification** (`verify.py`): "Verify now" on the Connections page, and a nightly run after 3 a.m., look every filed file up again. A changed file is `drifted`, a removed one `missing`. Nothing is repaired automatically.
+
+Set `SECRETS_KEY` (and, for real Drive, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) in the worker's environment the same as the app's.
+
 ## Storage
 
 Same layout as the app: originals under `originals/`, and everything the worker makes under `cleaned/` and `peaks/`. Keys include the job id, so a retry writes new objects instead of editing old ones. The worker refuses to write under `originals/` at all. In development it reads and writes `.data/uploads`; with `ADAPTER_MODE=real` (production only) it uses the same S3 bucket as the app.
@@ -109,7 +123,7 @@ Same layout as the app: originals under `originals/`, and everything the worker 
 ## Tests
 
 ```sh
-npm run worker:test           # about 300 tests: real ffmpeg, a real Postgres database, scripted and stubbed transcribers and analyzers
+npm run worker:test           # about 380 tests: real ffmpeg, a real Postgres database, scripted and stubbed transcribers and analyzers
 npm run worker:lint
 ```
 

@@ -13,15 +13,18 @@ from pathlib import Path
 import psycopg
 from psycopg.types.json import Jsonb
 
-from . import pipeline, queue
+from . import pipeline, queue, verify
 from .analysis import Analyzer, run_analysis
 from .analyzers import make_analyzer
 from .clean import CleanConfig, clean_audio
 from .config import Config
+from .filing import Filer
 from .media import MediaError, compute_peaks
+from .providers import StorageError
 from .queue import Job, PermanentError, StageMoved
 from .scripture import Reference, tags_for_book
 from .store import ObjectNotFound, ObjectStore
+from .targets import load_targets
 from .transcribe import Transcriber, build_prompt
 
 PROGRESS_INTERVAL = 1.0
@@ -43,7 +46,7 @@ def friendly(error: Exception) -> str:
         return "The audio file could not be processed. It may be damaged."
     if isinstance(error, ModelNotAvailable):
         return "The transcription model is not installed on the worker."
-    if isinstance(error, PermanentError):
+    if isinstance(error, (PermanentError, StorageError)):
         return str(error)[:200]
     return "Something went wrong while processing this recording."
 
@@ -80,7 +83,7 @@ class Runner:
         """Claims and runs one due job. Returns False when there was nothing to do."""
         job = queue.claim_job(self.conn, self.config.worker_id)
         if job is None:
-            return False
+            return self._verify_once()
         if self.heartbeat:
             self.heartbeat.current_job = job.id
         try:
@@ -95,9 +98,12 @@ class Runner:
             if not queue.start_stage(self.conn, job):
                 queue.cancel_job(self.conn, job, "The sermon is no longer waiting for this step.")
                 return
-            {"clean": self._clean, "transcribe": self._transcribe, "analyze": self._analyze}[
-                job.type
-            ](job)
+            {
+                "clean": self._clean,
+                "transcribe": self._transcribe,
+                "analyze": self._analyze,
+                "file": self._file,
+            }[job.type](job)
         except StageMoved as moved:
             queue.cancel_job(self.conn, job, str(moved))
         except Exception as error:  # every failure is recorded; none may kill the worker
@@ -249,6 +255,44 @@ class Runner:
             )
             if cfg["onSuccess"]["enqueue"]:
                 queue.enqueue(self.conn, job.sermon_id, cfg["onSuccess"]["enqueue"])
+
+    # -- filing and verification --------------------------------------------------------------
+
+    def _file(self, job: Job) -> None:
+        targets = load_targets(self.conn, self.config, need_all=True)
+        self.conn.execute("UPDATE sermons SET filing_error = NULL WHERE id = %s", (job.sermon_id,))
+        count = Filer(self.conn, self.store).file_sermon(
+            job.sermon_id, targets, self._reporter(job, 0.02, 0.98)
+        )
+        cfg = pipeline.job_config("file")
+        with self.conn.transaction():
+            self.conn.execute(
+                "UPDATE sermons SET filed_at = now(), filing_error = NULL WHERE id = %s",
+                (job.sermon_id,),
+            )
+            queue.mark_succeeded(self.conn, job.id)
+            queue.advance_sermon(
+                self.conn, job.sermon_id, cfg["runningStatus"], cfg["onSuccess"]["status"]
+            )
+            self.conn.execute(
+                "INSERT INTO audit_log (actor_id, action, entity, entity_id, diff) "
+                "VALUES (NULL, 'sermon.filed', 'sermon', %s, %s)",
+                (job.sermon_id, Jsonb({"files": count})),
+            )
+
+    def _verify_once(self) -> bool:
+        run_id = verify.claim_run(self.conn)
+        if run_id is None:
+            return False
+        try:
+            result = verify.run_verification(self.conn, self.config, run_id)
+            print(f"verification {run_id}: {result}", flush=True)
+        except Exception as error:  # never let a check kill the worker
+            self.conn.execute(
+                "UPDATE verification_runs SET state = 'failed', finished_at = now(), error = %s WHERE id = %s",
+                (f"{type(error).__name__}: {error}"[:300], run_id),
+            )
+        return True
 
     # -- analysis -----------------------------------------------------------------------------
 
@@ -407,6 +451,11 @@ class Runner:
                 queued = queue.reconcile_analysis(self.conn)
                 if queued:
                     print(f"queued analysis for {queued} finished transcript(s)", flush=True)
+                waiting = queue.reconcile_filing(self.conn)
+                if waiting:
+                    print(f"queued filing for {waiting} approved sermon(s)", flush=True)
+                verify.reap_stale_runs(self.conn)
+                verify.ensure_nightly(self.conn)
                 last_reap = self.clock()
             if not self.run_once():
                 sleep(self.config.poll_seconds)

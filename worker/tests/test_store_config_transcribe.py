@@ -146,10 +146,38 @@ class TestConfig:
                 "S3_BUCKET": "b",
                 "S3_REGION": "r",
                 "ANTHROPIC_API_KEY": "sk-test",
+                "SECRETS_KEY": "ab" * 32,
+                "GOOGLE_CLIENT_ID": "cid",
+                "GOOGLE_CLIENT_SECRET": "csecret",
             }
         )
         assert cfg.real_mode and cfg.s3_bucket == "b"
         assert cfg.analyzer == "anthropic"
+        assert "csecret" not in repr(cfg) and "abab" not in repr(cfg)
+
+    def test_storage_credentials_need_a_real_key_in_production_and_a_google_client_in_real_mode(
+        self,
+    ):
+        prod = {
+            **BASE_ENV,
+            "NODE_ENV": "production",
+            "ANALYZER": "anthropic",
+            "ANTHROPIC_API_KEY": "k",
+        }
+        with pytest.raises(ConfigError, match="SECRETS_KEY is required"):
+            from_env(prod)
+        with pytest.raises(ConfigError, match="64 hex"):
+            from_env({**BASE_ENV, "SECRETS_KEY": "short"})
+        real = {
+            **prod,
+            "SECRETS_KEY": "ab" * 32,
+            "ADAPTER_MODE": "real",
+            "S3_BUCKET": "b",
+            "S3_REGION": "r",
+        }
+        with pytest.raises(ConfigError, match="GOOGLE_CLIENT_ID"):
+            from_env(real)
+        assert from_env(BASE_ENV).secrets_key is None
 
     def test_analysis_is_fake_in_development_unless_asked_otherwise(self):
         assert from_env(BASE_ENV).analyzer == "fake"

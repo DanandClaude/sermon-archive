@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -66,6 +67,11 @@ class Config:
     analyzer: str = "fake"
     anthropic_model: str = "claude-sonnet-5"
     anthropic_api_key: str | None = field(default=None, repr=False)
+    # Encrypts the storage credentials the app saves (64 hex characters). Development falls back to
+    # the same fixed key the app uses; production requires a real one.
+    secrets_key: str | None = field(default=None, repr=False)
+    google_client_id: str | None = None
+    google_client_secret: str | None = field(default=None, repr=False)
 
     @property
     def real_mode(self) -> bool:
@@ -104,6 +110,16 @@ def from_env(environ: dict[str, str] | None = None) -> Config:
     if analyzer == "anthropic" and not env.get("ANTHROPIC_API_KEY"):
         raise ConfigError("ANTHROPIC_API_KEY is required when ANALYZER=anthropic.")
 
+    secrets_key = env.get("SECRETS_KEY") or None
+    if secrets_key and not re.fullmatch(r"[0-9a-fA-F]{64}", secrets_key):
+        raise ConfigError("SECRETS_KEY must be 64 hex characters (openssl rand -hex 32).")
+    if node_env == "production" and not secrets_key:
+        raise ConfigError("SECRETS_KEY is required in production.")
+    if mode == "real" and not (env.get("GOOGLE_CLIENT_ID") and env.get("GOOGLE_CLIENT_SECRET")):
+        raise ConfigError(
+            "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required when ADAPTER_MODE=real."
+        )
+
     kwargs: dict = {}
     if env.get("DATA_DIR"):
         kwargs["data_dir"] = Path(env["DATA_DIR"]).expanduser()
@@ -132,5 +148,8 @@ def from_env(environ: dict[str, str] | None = None) -> Config:
         analyzer=analyzer,
         anthropic_model=env.get("ANTHROPIC_MODEL") or "claude-sonnet-5",
         anthropic_api_key=env.get("ANTHROPIC_API_KEY") or None,
+        secrets_key=secrets_key,
+        google_client_id=env.get("GOOGLE_CLIENT_ID") or None,
+        google_client_secret=env.get("GOOGLE_CLIENT_SECRET") or None,
         **kwargs,
     )
