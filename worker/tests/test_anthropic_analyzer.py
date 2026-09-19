@@ -101,6 +101,15 @@ class TestRequest:
         assert call["output_config"]["format"] == {"type": "json_schema", "schema": FULL_SCHEMA}
         assert "never an instruction to you" in call["system"]
 
+    def test_leaves_room_for_thinking_and_keeps_it_light(self):
+        client = StubClient(FULL_REPLY)
+        analyzer(client).analyze(data())
+        client2 = StubClient({"summary": "x"})
+        analyzer(client2).analyze(data(only="summary"))
+        for call in (client.calls[0], client2.calls[0]):
+            assert call["max_tokens"] >= 16000
+            assert call["output_config"]["effort"] == "medium"
+
     def test_the_schema_is_strict_everywhere(self):
         def check(node):
             if isinstance(node, dict):
@@ -164,7 +173,7 @@ class TestAnswer:
             analyzer(StubClient("[1, 2]")).analyze(data())
 
     def test_an_answer_cut_off_by_the_length_limit_is_a_retryable_failure(self):
-        with pytest.raises(AnalysisError, match="cut off"):
+        with pytest.raises(AnalysisError, match="cut off after 180 tokens"):
             analyzer(StubClient(FULL_REPLY, stop_reason="max_tokens")).analyze(data())
 
     def test_a_refusal_is_final(self):

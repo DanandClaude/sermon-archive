@@ -329,3 +329,19 @@ class TestReconcile:
         add_transcript(conn, sermon)
         add_job(conn, sermon, "analyze")
         assert queue.reconcile_analysis(conn) == 0
+
+
+def test_a_cut_off_answer_is_explained_kindly_to_the_contributor(conn, config, store, waiting):
+    sermon, job = waiting
+
+    class CutOff:
+        name, model, prompt_version = "cut", "c", "1"
+
+        def analyze(self, data):
+            raise AnalysisError("The summary service’s answer was cut off after 6000 tokens.")
+
+    conn.execute("UPDATE jobs SET attempts = 2 WHERE id = %s", (job,))
+    make_runner(conn, config, store, CutOff()).run_once()
+    s = sermon_row(conn, sermon)
+    assert s["status"] == "failed" and "Try again" in s["last_error"]
+    assert "6000 tokens" in job_row(conn, job)["last_error"]  # the detail stays for admins

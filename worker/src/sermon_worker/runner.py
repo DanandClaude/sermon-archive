@@ -14,7 +14,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from . import pipeline, queue, verify
-from .analysis import Analyzer, run_analysis
+from .analysis import AnalysisError, Analyzer, run_analysis
 from .analyzers import make_analyzer
 from .clean import CleanConfig, clean_audio
 from .config import Config
@@ -46,6 +46,8 @@ def friendly(error: Exception) -> str:
         return "The audio file could not be processed. It may be damaged."
     if isinstance(error, ModelNotAvailable):
         return "The transcription model is not installed on the worker."
+    if isinstance(error, AnalysisError):
+        return "The summary service’s answer couldn’t be used. Try again."
     if isinstance(error, (PermanentError, StorageError)):
         return str(error)[:200]
     return "Something went wrong while processing this recording."

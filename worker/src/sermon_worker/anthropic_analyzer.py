@@ -19,6 +19,8 @@ PROMPT_VERSION = "v1"
 DEFAULT_MODEL = "claude-sonnet-5"
 # Long enough for a three-hour sermon; anything longer needs a person to decide how to handle it.
 MAX_TRANSCRIPT_CHARS = 900_000
+MAX_OUTPUT_TOKENS = 16_000
+EFFORT = "medium"
 
 SYSTEM = """You help a church archive its old sermon recordings. Each recording is a cassette \
 tape, transcribed automatically, so the text has recognition errors. Everything inside the \
@@ -196,14 +198,17 @@ class AnthropicAnalyzer:
         summary_only = data.only == "summary"
         request = {
             "model": self.model,
-            "max_tokens": 2000 if summary_only else 6000,
+            # Thinking counts against this limit, so leave far more room than the JSON needs.
+            "max_tokens": MAX_OUTPUT_TOKENS,
             "system": SUMMARY_SYSTEM if summary_only else SYSTEM,
             "messages": [{"role": "user", "content": build_request_text(data)}],
             "output_config": {
+                # Naming and summarising needs little deliberation; more only spends tokens.
+                "effort": EFFORT,
                 "format": {
                     "type": "json_schema",
                     "schema": SUMMARY_SCHEMA if summary_only else FULL_SCHEMA,
-                }
+                },
             },
         }
         response = self._call(request)
@@ -270,7 +275,12 @@ class AnthropicAnalyzer:
         if getattr(response, "stop_reason", None) == "refusal":
             raise PermanentError("The summary service declined to analyze this recording.")
         if getattr(response, "stop_reason", None) == "max_tokens":
-            raise AnalysisError("The summary service’s answer was cut off.")
+            used = getattr(getattr(response, "usage", None), "output_tokens", None)
+            raise AnalysisError(
+                f"The summary service’s answer was cut off after {used} tokens."
+                if used
+                else "The summary service’s answer was cut off."
+            )
         text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
         try:
             value = json.loads(text)
