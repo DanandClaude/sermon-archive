@@ -133,71 +133,112 @@ export default async function LibraryPage({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-[14px]">
-              <caption className="sr-only">Sermons, newest recording first</caption>
-              <thead>
-                <tr className="border-b border-chip text-[12.5px] uppercase tracking-[0.06em] text-muted">
-                  <th scope="col" className="px-6 py-3.5 font-semibold">
-                    Sermon
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 font-semibold">
-                    Scripture
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 font-semibold">
-                    Recorded
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 font-semibold">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3.5 font-semibold">
-                    Uploaded by
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.rows.map((row) => {
-                  const recorded = formatRecordedOn(row.recordedOn);
-                  const detail = [row.side ? `Side ${row.side}` : null, row.batchLabel]
-                    .filter(Boolean)
-                    .join(' · ');
-                  return (
-                    <tr key={row.id} className="border-b border-chip last:border-b-0">
-                      <td className="max-w-[360px] px-6 py-4 align-top">
-                        <Link
-                          href={`/sermons/${row.id}`}
-                          className="text-ink underline decoration-line-strong underline-offset-2"
-                        >
-                          {row.title ? (
-                            <span className="font-semibold">{row.title}</span>
-                          ) : (
-                            <span className="break-all font-mono text-[13px] font-medium">
-                              {row.filename ?? 'Untitled tape'}
-                            </span>
-                          )}
-                        </Link>
-                        {detail ? (
-                          <div className="mt-0.5 text-[13px] text-muted">{detail}</div>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-4 align-top">
-                        {row.labelScripture ?? <span className="text-faint">—</span>}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 align-top">
+          <>
+            <ul className="m-0 list-none p-0 md:hidden" aria-label="Sermons">
+              {result.rows.map((row) => {
+                const recorded = formatRecordedOn(row.recordedOn);
+                const detail = [row.side ? `Side ${row.side}` : null, row.batchLabel]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <li key={row.id} className="border-b border-chip px-4 py-4 last:border-b-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <Link
+                        href={`/sermons/${row.id}`}
+                        className="min-w-0 text-ink underline decoration-line-strong underline-offset-2"
+                      >
+                        {row.title ? (
+                          <span className="font-semibold">{row.title}</span>
+                        ) : (
+                          <span className="break-all font-mono text-[13px] font-medium">
+                            {row.filename ?? 'Untitled tape'}
+                          </span>
+                        )}
+                      </Link>
+                      <span className="flex-none">
+                        <StatusChip status={row.status} />
+                      </span>
+                    </div>
+                    {detail ? <div className="mt-0.5 text-[13px] text-muted">{detail}</div> : null}
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13.5px] text-muted">
+                      <span>{row.labelScripture ?? '—'}</span>
+                      <span>
                         {recorded ?? (
                           <span className="font-semibold text-amber-text">Date needed</span>
                         )}
-                      </td>
-                      <td className="px-3 py-4 align-top">
-                        <StatusChip status={row.status} />
-                      </td>
-                      <td className="px-6 py-4 align-top text-muted">{row.contributorName}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </span>
+                      <span>{row.contributorName}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full border-collapse text-left text-[14px]">
+                <caption className="sr-only">Sermons, newest recording first</caption>
+                <thead>
+                  <tr className="border-b border-chip text-[12.5px] uppercase tracking-[0.06em] text-muted">
+                    <th scope="col" className="px-6 py-3.5 font-semibold">
+                      Sermon
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 font-semibold">
+                      Scripture
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 font-semibold">
+                      Recorded
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 font-semibold">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3.5 font-semibold">
+                      Uploaded by
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.rows.map((row) => {
+                    const recorded = formatRecordedOn(row.recordedOn);
+                    const detail = [row.side ? `Side ${row.side}` : null, row.batchLabel]
+                      .filter(Boolean)
+                      .join(' · ');
+                    return (
+                      <tr key={row.id} className="border-b border-chip last:border-b-0">
+                        <td className="max-w-[360px] px-6 py-4 align-top">
+                          <Link
+                            href={`/sermons/${row.id}`}
+                            className="text-ink underline decoration-line-strong underline-offset-2"
+                          >
+                            {row.title ? (
+                              <span className="font-semibold">{row.title}</span>
+                            ) : (
+                              <span className="break-all font-mono text-[13px] font-medium">
+                                {row.filename ?? 'Untitled tape'}
+                              </span>
+                            )}
+                          </Link>
+                          {detail ? (
+                            <div className="mt-0.5 text-[13px] text-muted">{detail}</div>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-4 align-top">
+                          {row.labelScripture ?? <span className="text-faint">—</span>}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 align-top">
+                          {recorded ?? (
+                            <span className="font-semibold text-amber-text">Date needed</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-4 align-top">
+                          <StatusChip status={row.status} />
+                        </td>
+                        <td className="px-6 py-4 align-top text-muted">{row.contributorName}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {result.total > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-chip bg-paper px-6 py-3 text-[13px] text-muted">

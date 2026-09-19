@@ -18,9 +18,16 @@ export type SidebarProps = {
   signOutAction: () => Promise<void>;
 };
 
-export function Sidebar({ churchName, user, sections, badges, signOutAction }: SidebarProps) {
+/** The brand, navigation and user card. Shared by the desktop sidebar and the phone menu. */
+export function SidebarContent({
+  churchName,
+  user,
+  sections,
+  badges,
+  signOutAction,
+}: SidebarProps) {
   return (
-    <aside className="on-sidebar sticky top-0 flex h-screen w-[248px] flex-none flex-col bg-sidebar px-4 py-6 text-sidebar-ink">
+    <>
       <div className="flex items-center gap-3 px-2 pb-7">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-ink text-sidebar">
           <Icon name="cassette" size={24} />
@@ -80,6 +87,15 @@ export function Sidebar({ churchName, user, sections, badges, signOutAction }: S
           </button>
         </form>
       </div>
+    </>
+  );
+}
+
+/** From tablet width up: a fixed column down the left. Below that the phone menu is used instead. */
+export function Sidebar(props: SidebarProps) {
+  return (
+    <aside className="on-sidebar sticky top-0 hidden h-screen w-[248px] flex-none flex-col bg-sidebar px-4 py-6 text-sidebar-ink md:flex">
+      <SidebarContent {...props} />
     </aside>
   );
 }

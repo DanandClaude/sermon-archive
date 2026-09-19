@@ -41,7 +41,7 @@ export function Waveform({
   const bars = useMemo(() => downsample(peaks?.peaks ?? [], BARS), [peaks]);
   const total = duration || peaks?.duration || 0;
   const progress = total > 0 ? Math.min(1, time / total) : 0;
-  const base = tone === 'spruce' ? 'var(--color-spruce-tint)' : 'var(--color-line-strong)';
+  const base = tone === 'spruce' ? '#b7cfc8' : 'var(--color-line-strong)';
   const played = tone === 'spruce' ? 'var(--color-spruce)' : 'var(--color-faint)';
 
   if (bars.length === 0) {

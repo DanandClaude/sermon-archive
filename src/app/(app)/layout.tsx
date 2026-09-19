@@ -1,4 +1,5 @@
-import { Sidebar } from '@/components/shell/Sidebar';
+import { MobileNav } from '@/components/shell/MobileNav';
+import { Sidebar, SidebarContent } from '@/components/shell/Sidebar';
 import { getDb } from '@/db/client';
 import { signOut } from '@/lib/auth/actions';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -16,22 +17,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     countNeedsReview(db, user),
   ]);
 
+  const shell = {
+    churchName,
+    user,
+    sections: navFor(user.role),
+    badges: { needsReview },
+    signOutAction: signOut,
+  };
+
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-10 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold"
       >
         Skip to content
       </a>
-      <Sidebar
-        churchName={churchName}
-        user={user}
-        sections={navFor(user.role)}
-        badges={{ needsReview }}
-        signOutAction={signOut}
-      />
-      <main id="main" className="flex min-w-0 flex-1 flex-col gap-7 px-11 pb-8 pt-10">
+      <MobileNav churchName={churchName}>
+        <SidebarContent {...shell} />
+      </MobileNav>
+      <Sidebar {...shell} />
+      <main
+        id="main"
+        className="flex min-w-0 flex-1 flex-col gap-7 px-4 pb-8 pt-6 md:px-11 md:pt-10"
+      >
         {children}
       </main>
     </div>
