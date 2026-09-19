@@ -33,4 +33,5 @@ Set `NODE_ENV=production`, `ADAPTER_MODE=real` and the variables in `.env.exampl
 - The app's own database and upload bucket (yours).
 - Email addresses and names are used to send sign-in links through your SMTP provider. Sermon content is never emailed.
 - Transcription runs on your own machine. No audio is sent to a transcription service.
-- No sermon content is sent to any third party yet. Each of these will be listed here when it is added: the Anthropic API for analysis (Phase 3), Google Drive or another storage provider (Phase 4), and YouTube or a podcast host (Phase 5).
+- **Anthropic API (optional).** When `ANALYZER=anthropic`, the worker sends the transcript text (never audio) to Claude to write a title, summary and topic tags and to judge which passages were named. With the default `ANALYZER=fake`, nothing leaves your machine and the title and summary are placeholders.
+- Not sent anywhere yet, and listed here when added: Google Drive or another storage provider (Phase 4), and YouTube or a podcast host (Phase 5).

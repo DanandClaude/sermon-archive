@@ -59,7 +59,9 @@ Needs Node 24 (`.nvmrc`) and local Postgres 16. No Docker or Redis.
 - Transcripts live in `transcripts` (word-timed, versioned). SRT, VTT and text are rendered on demand by `src/lib/transcripts/render.ts`; don't store them.
 - Failures are shown to contributors in plain language (`sermons.last_error`); raw error text stays in `jobs` and is visible to admins only.
 - Transcription is in-house (MLX on the Mac's GPU, or faster-whisper on a CPU). Don't add a hosted transcription service; the owner chose not to send audio to third parties. Tuning is done on real tapes in `fixtures/private/` (git-ignored, never commit sermon audio): the worker transcribes the original audio by default and cleans conservatively, because on real tapes cleanup did not help transcription.
-- The owner is fine with the Anthropic API reading transcript text (titles, summaries, scripture). Audio never goes to a third party.
+- The owner is fine with the Anthropic API reading transcript text (titles, summaries, scripture). Audio never goes to a third party. The worker's `ANALYZER` is `fake` in development and tests (real only when set, and required in production); never put a real key in a test or fixture.
+- Scripture: `shared/canon.json` (from public-domain KJV via `scripts/build-canon.ts`) and `shared/book-aliases.json` are read by both `src/lib/scripture/canon.ts` and `worker/src/sermon_worker/scripture.py`; `shared/reference-cases.json` is tested by both. Change a rule in both places.
+- Review edits go through `src/lib/review/service.ts` (permission checks, audit log, soft delete, approval and the file name); server actions in `src/app/(app)/sermons/[id]/actions.ts` only call it. Passages keep `detected_original`. The file name stem is fixed at approval.
 - The worker's Python package is found through `PYTHONPATH` (`worker/run.sh`, pytest config), not the editable-install `.pth`, which macOS can hide.
 - `next dev` may re-add a Next.js agent-rules block to this file. It is generic guidance and safe to keep or remove.
 
