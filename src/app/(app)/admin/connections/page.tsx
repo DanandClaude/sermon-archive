@@ -3,6 +3,7 @@ import { AdminOnlyBadge, PageHeader } from '@/components/shell/PageHeader';
 import { getDb } from '@/db/client';
 import { requireCapability } from '@/lib/auth/guard';
 import { timeAgo } from '@/lib/format';
+import { getBackupState } from '@/lib/storage/backup-status';
 import { listTargets, type TargetStatus } from '@/lib/storage/connections';
 import { latestVerification, listProblems, waitingToFile } from '@/lib/storage/filing';
 import { isRealMode } from '@/lib/storage/google-client';
@@ -136,11 +137,12 @@ export default async function ConnectionsPage({
   const user = await requireCapability('connections.manage');
   const db = getDb();
   const sp = await searchParams;
-  const [targets, run, problems, waiting] = await Promise.all([
+  const [targets, run, problems, waiting, backup] = await Promise.all([
     listTargets(db, user),
     latestVerification(db, user),
     listProblems(db, user),
     waitingToFile(db),
+    getBackupState(db, user),
   ]);
   const realMode = isRealMode();
   const bothConnected = targets.every((t) => t.connected);
@@ -212,6 +214,33 @@ export default async function ConnectionsPage({
             : 'No check has run yet.'}
         </p>
         <CheckButtons waiting={waiting.length} canFile={bothConnected} checking={checking} />
+      </section>
+
+      <section
+        aria-labelledby="backup-h"
+        className="rounded-2xl border border-line bg-surface p-[22px]"
+      >
+        <h2 id="backup-h" className="m-0 text-[17px] font-semibold">
+          Database backups
+        </h2>
+        <p className="mb-3 mt-1.5 text-sm text-muted">
+          Every night the app’s records (people, sermons, transcripts, passage lists and settings)
+          are copied to your storage bucket. Recordings are kept in the two drives above. A day’s
+          copy is kept for 14 days, and each Sunday’s for 8 weeks.
+        </p>
+        <p
+          data-testid="backup-state"
+          role={backup.kind === 'failed' || backup.kind === 'stale' ? 'alert' : undefined}
+          className={`m-0 text-sm font-medium ${backup.kind === 'failed' || backup.kind === 'stale' ? 'text-danger' : ''}`}
+        >
+          {backup.kind === 'none'
+            ? 'No backup has been recorded yet. If this is a new install, the first one runs shortly after the backup service starts.'
+            : backup.kind === 'failed'
+              ? `The last backup failed ${timeAgo(backup.at)}: ${backup.error}`
+              : backup.kind === 'stale'
+                ? `The last good backup was ${timeAgo(backup.at)}. Check that the backup service is running.`
+                : `Last backup ${timeAgo(backup.at)} (${(backup.bytes / 1_000_000).toFixed(1)} MB${backup.encrypted ? ', encrypted' : ', not encrypted'}).`}
+        </p>
       </section>
 
       {problems.length > 0 ? (
