@@ -13,13 +13,16 @@ const notFound = () => new Response(null, { status: 404 });
  */
 export async function GET(request: Request) {
   if (process.env.NODE_ENV === 'production') return notFound();
-  let store;
+  let store: FakeUploadStore;
   try {
-    store = getUploadStore();
+    const found = getUploadStore();
+    // Not `instanceof`: in development the store can be created by a different copy of the
+    // module (a page rendered first), and the class check would wrongly fail.
+    if (found.kind !== 'fake') return notFound();
+    store = found as FakeUploadStore;
   } catch {
     return notFound();
   }
-  if (!(store instanceof FakeUploadStore)) return notFound();
 
   const url = new URL(request.url);
   const key = url.searchParams.get('key') ?? '';

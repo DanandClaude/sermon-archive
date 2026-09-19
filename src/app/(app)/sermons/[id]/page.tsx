@@ -6,10 +6,21 @@ import { getDb } from '@/db/client';
 import { requireCapability } from '@/lib/auth/guard';
 import { formatRecordedOn, timeAgo } from '@/lib/format';
 import { getWorkerStatus, runningProgress } from '@/lib/jobs';
+import { formatReference } from '@/lib/scripture/canon';
+import { isApprovedOrLater } from '@/lib/sermon-status';
 import { getSermonDetail, isUuid } from '@/lib/sermons/detail';
+import { readPeaks } from '@/lib/sermons/peaks';
+import { ApproveCard } from './ApproveCard';
 import { AutoRefresh } from './AutoRefresh';
+import { DetailsForm } from './DetailsForm';
+import { HeaderActions } from './HeaderActions';
+import { ReadOnlyDetails } from './ReadOnlyDetails';
 import { RetryButton } from './RetryButton';
+import { ReviewProvider } from './ReviewContext';
+import { ScripturePanel } from './ScripturePanel';
 import { SermonPlayer } from './SermonPlayer';
+import { SummaryCard } from './SummaryCard';
+import { TranscriptPanel } from './TranscriptPanel';
 
 export const metadata = { title: 'Sermon' };
 
@@ -18,7 +29,7 @@ const STAGE_TEXT: Record<string, string> = {
   uploaded: 'Uploaded. Waiting to be processed.',
   cleaning: 'Cleaning up the audio',
   transcribing: 'Transcribing',
-  analyzing: 'The transcript is ready. Naming and summarizing come next.',
+  analyzing: 'Naming, summarizing and finding the scripture references',
 };
 const READ_URL_SECONDS = 60 * 60;
 
@@ -31,13 +42,15 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
   if (!detail) notFound();
 
   const store = getUploadStore();
-  const [originalUrl, cleanedUrl] = await Promise.all([
+  const [originalUrl, cleanedUrl, originalPeaks, cleanedPeaks] = await Promise.all([
     detail.original
       ? store.presignRead({ key: detail.original.storageKey, expiresInSec: READ_URL_SECONDS })
       : null,
     detail.cleaned
       ? store.presignRead({ key: detail.cleaned.storageKey, expiresInSec: READ_URL_SECONDS })
       : null,
+    readPeaks(store, detail.original?.peaksKey ?? null),
+    readPeaks(store, detail.cleaned?.peaksKey ?? null),
   ]);
   const processing = (PROCESSING as readonly string[]).includes(detail.status);
   const [progress, worker] = processing
@@ -55,10 +68,30 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
     .join(' · ');
   const title = detail.title ?? detail.filename ?? 'Untitled tape';
 
+  const reviewable = detail.status === 'needs_review' || isApprovedOrLater(detail.status);
+  const topicNames = detail.tags.filter((t) => t.kind === 'topic').map((t) => t.name);
+  const passageTags = detail.tags.filter((t) => t.kind !== 'topic').map((t) => t.name);
+  const initial = {
+    title: detail.title ?? '',
+    recordedOn: detail.recordedOn ?? '',
+    speaker: detail.speaker ?? '',
+    primaryPassage: detail.primaryPassage ? formatReference(detail.primaryPassage) : '',
+    topics: topicNames,
+  };
+
   return (
-    <>
+    <ReviewProvider sermonId={detail.id}>
       {processing || detail.status === 'analyzing' ? <AutoRefresh /> : null}
-      <PageHeader title={title} description={meta} aside={<StatusChip status={detail.status} />} />
+      <PageHeader
+        title={title}
+        description={meta}
+        aside={
+          <div className="flex flex-wrap items-start justify-end gap-3">
+            <StatusChip status={detail.status} />
+            {detail.canEdit ? <HeaderActions canApprove={detail.canApprove} /> : null}
+          </div>
+        }
+      />
 
       {detail.status === 'failed' ? (
         <section
@@ -69,9 +102,7 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
           <p className="mb-4 mt-1.5 text-[14.5px]">
             {detail.lastError ?? 'Something went wrong while processing.'}
           </p>
-          {detail.canRetry && detail.failedStage !== 'analyzing' ? (
-            <RetryButton sermonId={detail.id} />
-          ) : null}
+          {detail.canRetry ? <RetryButton sermonId={detail.id} /> : null}
         </section>
       ) : STAGE_TEXT[detail.status] ? (
         <section className="rounded-2xl border border-line bg-surface px-6 py-[22px]">
@@ -89,69 +120,125 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
         </section>
       ) : null}
 
-      {originalUrl ? (
-        <SermonPlayer
-          originalUrl={originalUrl.url}
-          cleanedUrl={cleanedUrl?.url ?? null}
-          segments={detail.transcript?.segments ?? []}
-          lowConfidence={detail.transcript?.lowConfidence ?? []}
-        />
-      ) : null}
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:gap-6">
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
+          {originalUrl ? (
+            <SermonPlayer
+              originalUrl={originalUrl.url}
+              cleanedUrl={cleanedUrl?.url ?? null}
+              originalPeaks={originalPeaks}
+              cleanedPeaks={cleanedPeaks}
+              durationSec={detail.durationSec}
+            />
+          ) : null}
 
-      {detail.transcript ? (
-        <section
-          aria-labelledby="downloads"
-          className="rounded-2xl border border-line bg-surface px-6 py-[22px]"
+          {reviewable ? <ScripturePanel items={detail.scripture} canEdit={detail.canEdit} /> : null}
+
+          {detail.transcript ? (
+            <TranscriptPanel
+              segments={detail.transcript.segments}
+              lowConfidence={detail.transcript.lowConfidence}
+            />
+          ) : null}
+
+          {detail.transcript ? (
+            <section
+              aria-labelledby="downloads"
+              className="rounded-2xl border border-line bg-surface px-6 py-[22px]"
+            >
+              <h2 id="downloads" className="m-0 text-[17px] font-semibold">
+                Download the transcript
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {[
+                  ['srt', 'Subtitles (SRT)'],
+                  ['vtt', 'Subtitles (VTT)'],
+                  ['txt', 'Plain text'],
+                ].map(([format, label]) => (
+                  <a
+                    key={format}
+                    href={`/api/sermons/${detail.id}/transcript?format=${format}`}
+                    download
+                    className="inline-flex h-11 items-center rounded-xl border border-line-strong bg-surface px-[18px] text-[14.5px] font-semibold text-ink"
+                  >
+                    {label}
+                  </a>
+                ))}
+              </div>
+              <p className="mb-0 mt-3 text-[13px] text-muted">
+                Transcribed by {detail.transcript.model} · version {detail.transcript.version}
+              </p>
+            </section>
+          ) : null}
+        </div>
+
+        <aside
+          aria-label="Sermon details"
+          className="flex flex-col gap-5 xl:w-[340px] xl:flex-none"
         >
-          <h2 id="downloads" className="m-0 text-[17px] font-semibold">
-            Download the transcript
-          </h2>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {[
-              ['srt', 'Subtitles (SRT)'],
-              ['vtt', 'Subtitles (VTT)'],
-              ['txt', 'Plain text'],
-            ].map(([format, label]) => (
-              <a
-                key={format}
-                href={`/api/sermons/${detail.id}/transcript?format=${format}`}
-                download
-                className="inline-flex h-11 items-center rounded-xl border border-line-strong bg-surface px-[18px] text-[14.5px] font-semibold text-ink"
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-          <p className="mb-0 mt-3 text-[13px] text-muted">
-            Transcribed by {detail.transcript.model} · version {detail.transcript.version}
-          </p>
-        </section>
-      ) : null}
+          {reviewable ? (
+            <SummaryCard
+              summary={detail.summary}
+              canEdit={detail.canEdit}
+              canRegenerate={detail.canRegenerate}
+            />
+          ) : null}
 
-      <section
-        aria-labelledby="details"
-        className="rounded-2xl border border-line bg-surface px-6 py-[22px]"
-      >
-        <h2 id="details" className="m-0 mb-3 text-[17px] font-semibold">
-          Details
-        </h2>
-        <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-8 gap-y-2 text-[14.5px]">
-          <dt className="text-muted">File</dt>
-          <dd className="m-0 break-all font-mono text-[13px]">{detail.filename ?? '—'}</dd>
-          <dt className="text-muted">Scripture on label</dt>
-          <dd className="m-0">{detail.labelScripture ?? '—'}</dd>
-          <dt className="text-muted">Length</dt>
-          <dd className="m-0">
-            {detail.durationSec
-              ? `${Math.floor(detail.durationSec / 60)} min ${detail.durationSec % 60} s`
-              : '—'}
-          </dd>
-          <dt className="text-muted">Uploaded by</dt>
-          <dd className="m-0">
-            {detail.contributorName}, {timeAgo(detail.createdAt)}
-          </dd>
-        </dl>
-      </section>
+          {reviewable && detail.canEdit ? (
+            <DetailsForm
+              initial={initial}
+              tags={passageTags}
+              suggestions={detail.topicSuggestions}
+              batchLabel={detail.batchLabel}
+              originalFilename={detail.filename}
+              stemLocked={detail.filenameStem}
+            />
+          ) : reviewable ? (
+            <ReadOnlyDetails
+              title={detail.title}
+              recordedOn={detail.recordedOn}
+              speaker={detail.speaker}
+              passage={detail.primaryPassage}
+              tags={[...passageTags, ...topicNames]}
+              stem={detail.filenameStem}
+            />
+          ) : null}
+
+          {reviewable ? (
+            <ApproveCard
+              approved={isApprovedOrLater(detail.status)}
+              approvedAt={detail.approvedAt}
+              approverName={detail.approvedByName}
+              stem={detail.filenameStem}
+            />
+          ) : null}
+
+          <section
+            aria-labelledby="about"
+            className="rounded-2xl border border-line bg-surface px-[22px] py-5"
+          >
+            <h2 id="about" className="m-0 mb-3 text-[17px] font-semibold">
+              About this recording
+            </h2>
+            <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
+              <dt className="text-muted">File</dt>
+              <dd className="m-0 break-all font-mono text-[12.5px]">{detail.filename ?? '—'}</dd>
+              <dt className="text-muted">Label passage</dt>
+              <dd className="m-0">{detail.labelScripture ?? '—'}</dd>
+              <dt className="text-muted">Length</dt>
+              <dd className="m-0">
+                {detail.durationSec
+                  ? `${Math.floor(detail.durationSec / 60)} min ${detail.durationSec % 60} s`
+                  : '—'}
+              </dd>
+              <dt className="text-muted">Uploaded by</dt>
+              <dd className="m-0">
+                {detail.contributorName}, {timeAgo(detail.createdAt)}
+              </dd>
+            </dl>
+          </section>
+        </aside>
+      </div>
 
       {detail.jobs ? (
         <section
@@ -210,6 +297,6 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
           )}
         </section>
       ) : null}
-    </>
+    </ReviewProvider>
   );
 }

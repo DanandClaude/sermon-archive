@@ -1,17 +1,8 @@
-import { ComingSoon, PageHeader } from '@/components/shell/PageHeader';
+import { redirect } from 'next/navigation';
 import { requireCapability } from '@/lib/auth/guard';
 
-export const metadata = { title: 'Needs review' };
-
+/** "Needs review" in the sidebar is the library filtered to sermons waiting for review. */
 export default async function ReviewPage() {
   await requireCapability('sermon.review');
-  return (
-    <>
-      <PageHeader
-        title="Needs review"
-        description="Sermons waiting for you to check the transcript, passages and details before they’re filed."
-      />
-      <ComingSoon phase="Phase 3" />
-    </>
-  );
+  redirect('/library?tab=needs_review');
 }
