@@ -70,6 +70,12 @@ describe('sermon state machine', () => {
     expect(canTransition('failed', 'filed')).toBe(false);
   });
 
+  it('lets a reviewer send a sermon back for a fresh analysis, but not approve it twice', () => {
+    expect(canTransition('needs_review', 'analyzing')).toBe(true);
+    expect(canTransition('approved', 'needs_review')).toBe(false);
+    expect(canTransition('approved', 'analyzing')).toBe(false);
+  });
+
   it('never skips a stage', () => {
     expect(canTransition('uploaded', 'transcribing')).toBe(false);
     expect(canTransition('cleaning', 'needs_review')).toBe(false);

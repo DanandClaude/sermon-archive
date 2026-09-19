@@ -164,7 +164,7 @@ export const STATUS_LABEL: Record<RowStatus, string> = {
   uploaded: 'Waiting to process',
   cleaning: 'Cleaning audio',
   transcribing: 'Transcribing',
-  analyzing: 'Transcript ready',
+  analyzing: 'Naming & summarizing',
   needs_review: 'Ready to review',
   failed: 'Needs attention',
   error: 'Upload failed',

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -8,6 +9,8 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -111,6 +114,14 @@ export const sermons = pgTable(
     /** Scripture exactly as the contributor typed it from the tape label. Parsed in Phase 3. */
     labelScripture: text('label_scripture'),
     durationSec: integer('duration_sec'),
+    /** The file name without an extension: YYYY-MM-DD_Book-Chapter-Verse_ShortTitle. Kept unique. */
+    filenameStem: text('filename_stem'),
+    summaryText: text('summary_text'),
+    summarySource: text('summary_source'),
+    /** The main text: { book, chapter, verseStart, verseEnd }. From the tape label if typed, else detected. */
+    primaryPassage: jsonb('primary_passage'),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    approvedBy: uuid('approved_by').references((): AnyPgColumn => users.id),
     /** Set with status `failed`: the stage to resume from when someone presses Retry. */
     failedStage: text('failed_stage'),
     lastError: text('last_error'),
@@ -123,6 +134,13 @@ export const sermons = pgTable(
   },
   (t) => [
     check('sermons_side_check', sql`${t.side} in ('A', 'B')`),
+    check(
+      'sermons_summary_source_check',
+      sql`${t.summarySource} is null or ${t.summarySource} in ('auto', 'edited')`,
+    ),
+    uniqueIndex('sermons_filename_stem_idx')
+      .on(t.filenameStem)
+      .where(sql`${t.deletedAt} is null and ${t.filenameStem} is not null`),
     check(
       'sermons_failed_stage_check',
       sql`${t.failedStage} is null or ${t.failedStage} in (${sql.raw(FAILED_STAGES.map((s) => `'${s}'`).join(', '))})`,
@@ -219,6 +237,8 @@ export const jobs = pgTable(
     /** 0-100, updated by the worker while running. */
     progress: integer('progress').notNull().default(0),
     lastError: text('last_error'),
+    /** Options for the job, such as { only: 'summary' } to regenerate just the summary. */
+    payload: jsonb('payload'),
     lockedBy: text('locked_by'),
     /** Refreshed while running; a running job with an old heartbeat is treated as abandoned. */
     heartbeatAt: timestamp('heartbeat_at', { withTimezone: true }),
@@ -264,9 +284,95 @@ export const workerHeartbeats = pgTable('worker_heartbeats', {
   info: jsonb('info'),
 });
 
+export const tagKind = pgEnum('tag_kind', ['testament', 'genre', 'book', 'topic']);
+
+/** Testament, genre and book tags come from the canon. Topic tags are a controlled list that grows. */
+export const tags = pgTable(
+  'tags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    kind: tagKind('kind').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('tags_kind_name_idx').on(t.kind, sql`lower(${t.name})`)],
+);
+
+export const sermonTags = pgTable(
+  'sermon_tags',
+  {
+    sermonId: uuid('sermon_id')
+      .notNull()
+      .references(() => sermons.id),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => tags.id),
+  },
+  (t) => [primaryKey({ columns: [t.sermonId, t.tagId] }), index('sermon_tags_tag_idx').on(t.tagId)],
+);
+
+export const refSource = pgEnum('ref_source', ['auto', 'manual']);
+
+/**
+ * A passage the pastor names aloud, with when. Editing never loses what the system found:
+ * `detectedOriginal` keeps the automatic value. Deleting is a soft delete (recorded in the audit log).
+ */
+export const scriptureRefs = pgTable(
+  'scripture_refs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sermonId: uuid('sermon_id')
+      .notNull()
+      .references(() => sermons.id),
+    book: text('book').notNull(),
+    chapter: integer('chapter').notNull(),
+    /** Null means the whole chapter. */
+    verseStart: integer('verse_start'),
+    verseEnd: integer('verse_end'),
+    spokenAtSec: real('spoken_at_sec').notNull(),
+    contextNote: text('context_note'),
+    isMainText: boolean('is_main_text').notNull().default(false),
+    source: refSource('source').notNull(),
+    confidence: real('confidence'),
+    detectedOriginal: jsonb('detected_original'),
+    editedBy: uuid('edited_by').references(() => users.id),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('scripture_refs_sermon_idx').on(t.sermonId),
+    check('scripture_refs_chapter_check', sql`${t.chapter} >= 1`),
+    check(
+      'scripture_refs_verses_check',
+      sql`(${t.verseStart} is null and ${t.verseEnd} is null) or (${t.verseStart} >= 1 and (${t.verseEnd} is null or ${t.verseEnd} >= ${t.verseStart}))`,
+    ),
+  ],
+);
+
+/** What analysis was asked and what came back, kept for debugging (SPEC §4.3). */
+export const analyses = pgTable(
+  'analyses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sermonId: uuid('sermon_id')
+      .notNull()
+      .references(() => sermons.id),
+    transcriptVersion: integer('transcript_version').notNull(),
+    analyzer: text('analyzer').notNull(),
+    model: text('model').notNull(),
+    promptVersion: text('prompt_version').notNull(),
+    rawOutput: jsonb('raw_output').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('analyses_sermon_idx').on(t.sermonId)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Sermon = typeof sermons.$inferSelect;
 export type Upload = typeof uploads.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
+export type ScriptureRef = typeof scriptureRefs.$inferSelect;
+export type Tag = typeof tags.$inferSelect;
 export type Transcript = typeof transcripts.$inferSelect;
 export type { Role as UserRole } from '../lib/roles';

@@ -13,13 +13,17 @@ describe('migrations', () => {
       sql`select table_name from information_schema.tables where table_schema = 'public' order by 1`,
     );
     expect(rows.map((r) => r.table_name)).toEqual([
+      'analyses',
       'audio_assets',
       'audit_log',
       'jobs',
       'login_tokens',
+      'scripture_refs',
+      'sermon_tags',
       'sermons',
       'sessions',
       'settings',
+      'tags',
       'transcripts',
       'uploads',
       'users',

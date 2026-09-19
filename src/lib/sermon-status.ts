@@ -31,7 +31,8 @@ export const TRANSITIONS: Record<SermonStatus, readonly SermonStatus[]> = {
   cleaning: ['transcribing', 'failed'],
   transcribing: ['analyzing', 'failed'],
   analyzing: ['needs_review', 'failed'],
-  needs_review: ['approved'],
+  // Back to analyzing when a reviewer asks for the summary to be regenerated.
+  needs_review: ['approved', 'analyzing'],
   approved: ['filing'],
   filing: ['filed', 'approved'],
   filed: [],

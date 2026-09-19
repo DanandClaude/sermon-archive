@@ -18,7 +18,7 @@
     "cleaning": ["transcribing", "failed"],
     "transcribing": ["analyzing", "failed"],
     "analyzing": ["needs_review", "failed"],
-    "needs_review": ["approved"],
+    "needs_review": ["approved", "analyzing"],
     "approved": ["filing"],
     "filing": ["filed", "approved"],
     "filed": [],
@@ -28,12 +28,26 @@
     "clean": {
       "runningStatus": "cleaning",
       "startFrom": ["uploaded", "cleaning"],
-      "onSuccess": { "status": "transcribing", "enqueue": "transcribe" }
+      "onSuccess": {
+        "status": "transcribing",
+        "enqueue": "transcribe"
+      }
     },
     "transcribe": {
       "runningStatus": "transcribing",
       "startFrom": ["cleaning", "transcribing"],
-      "onSuccess": { "status": "analyzing", "enqueue": null }
+      "onSuccess": {
+        "status": "analyzing",
+        "enqueue": "analyze"
+      }
+    },
+    "analyze": {
+      "runningStatus": "analyzing",
+      "startFrom": ["analyzing"],
+      "onSuccess": {
+        "status": "needs_review",
+        "enqueue": null
+      }
     }
   },
   "failedStages": ["cleaning", "transcribing", "analyzing"]

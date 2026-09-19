@@ -5,7 +5,7 @@ export const SERMON_STATUS_LABEL: Record<SermonStatus, string> = {
   uploaded: 'Waiting to process',
   cleaning: 'Cleaning audio',
   transcribing: 'Transcribing',
-  analyzing: 'Transcript ready',
+  analyzing: 'Naming & summarizing',
   needs_review: 'Needs review',
   approved: 'Approved',
   filing: 'Filing',

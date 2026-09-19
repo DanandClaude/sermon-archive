@@ -42,7 +42,7 @@ function detail(row: QueueRow): string | undefined {
     case 'transcribing':
       return `Transcribing${pct}`;
     case 'analyzing':
-      return 'The transcript is ready. Naming and summarizing come next.';
+      return 'Naming, summarizing and finding the scripture references';
     case 'failed':
       return 'Something went wrong while processing.';
     default:

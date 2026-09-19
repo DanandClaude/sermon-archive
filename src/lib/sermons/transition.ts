@@ -13,7 +13,7 @@ export async function transitionSermon(
   sermonId: string,
   from: SermonStatus,
   to: SermonStatus,
-  extra: { failedStage?: string | null; lastError?: string | null } = {},
+  extra: Partial<typeof sermons.$inferInsert> = {},
 ): Promise<boolean> {
   assertTransition(from, to);
   const rows = await db

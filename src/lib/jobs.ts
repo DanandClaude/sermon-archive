@@ -16,10 +16,11 @@ export async function enqueueJob(
   db: Pick<Db, 'insert'>,
   sermonId: string,
   type: JobType,
+  payload?: Record<string, unknown>,
 ): Promise<boolean> {
   const rows = await db
     .insert(jobs)
-    .values({ sermonId, type })
+    .values({ sermonId, type, payload: payload ?? null })
     .onConflictDoNothing()
     .returning({ id: jobs.id });
   return rows.length === 1;

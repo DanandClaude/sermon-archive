@@ -126,14 +126,14 @@ describe('retrySermon', () => {
     expect(await jobsFor(s.id)).toHaveLength(0);
   });
 
-  it('says analysis cannot be retried yet, and leaves the sermon failed', async () => {
+  it('retries an analysis failure with an analyze job', async () => {
     const owner = await insertUser(db, 'contributor');
     const s = await failedSermon(owner, 'analyzing');
-    expect(await retrySermon(db, owner, s.id)).toMatchObject({
-      ok: false,
-      error: expect.stringMatching(/can’t be retried yet/),
-    });
-    expect((await db.select().from(sermons).where(eq(sermons.id, s.id)))[0].status).toBe('failed');
+    expect(await retrySermon(db, owner, s.id)).toEqual({ ok: true, stage: 'analyzing' });
+    expect((await jobsFor(s.id))[0].type).toBe('analyze');
+    expect((await db.select().from(sermons).where(eq(sermons.id, s.id)))[0].status).toBe(
+      'analyzing',
+    );
   });
 
   it('does nothing for a deleted or unknown sermon', async () => {
