@@ -172,6 +172,11 @@ class TestCleaning:
             "Trust", "a", "b", "c", "d",
         ]  # fmt: skip
 
+    def test_a_topic_never_repeats_a_book_testament_or_genre_tag(self):
+        assert clean_topics(["Hebrews", "Apostasy", "epistle", "New Testament", "1 John"]) == [
+            "Apostasy"
+        ]
+
     def test_summary_is_capped(self):
         assert len(clean_summary("word " * 1000)) <= 2000
         assert clean_summary("   ") is None

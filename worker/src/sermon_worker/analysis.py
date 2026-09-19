@@ -13,7 +13,15 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from .parser import Candidate, Transcript, find_references, flatten
-from .scripture import Invalid, Reference, format_reference, parse_reference_text, try_validate
+from .scripture import (
+    Invalid,
+    Reference,
+    book_names,
+    canon,
+    format_reference,
+    parse_reference_text,
+    try_validate,
+)
 
 # One entry per passage per cluster of mentions: a passage said again within this long of its last
 # mention is the same mention cluster, and keeps its earliest time.
@@ -141,8 +149,17 @@ def clean_title(title: str | None) -> str | None:
     return text or None
 
 
+def _passage_tag_names() -> set[str]:
+    """Names the passage tags already cover, so a topic never repeats one (a "Hebrews" topic
+    beside the "Hebrews" book tag)."""
+    names = {n.lower() for n in book_names()}
+    names |= {f"{t} testament".lower() for t in ("Old", "New")} | {"old testament", "new testament"}
+    names |= {b.genre.lower() for b in canon()}
+    return names
+
+
 def clean_topics(topics: list[str]) -> list[str]:
-    seen: set[str] = set()
+    seen: set[str] = _passage_tag_names()
     out: list[str] = []
     for topic in topics:
         text = re.sub(r"\s+", " ", str(topic)).strip(' .,;:"“”')
