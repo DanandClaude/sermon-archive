@@ -1,0 +1,20 @@
+# Keep secrets, private audio and local state out of every image.
+.git
+.github
+.env*
+!deploy/.env.production.example
+.data
+fixtures
+*.zip
+node_modules
+.next
+dist
+next-env.d.ts
+tsconfig.tsbuildinfo
+worker/.venv
+worker/.pytest_cache
+worker/.ruff_cache
+worker/**/__pycache__
+worker/src/*.egg-info
+.claude
+coverage

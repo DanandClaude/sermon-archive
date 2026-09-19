@@ -1,0 +1,11 @@
+# Caddy gets and renews the HTTPS certificate by itself. SITE_ADDRESS is your domain name.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy web:3000
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

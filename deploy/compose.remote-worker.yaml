@@ -1,0 +1,6 @@
+# Lets a worker on another computer reach the database, but only over a private network address
+# (for example a Tailscale IP). Set POSTGRES_BIND in .env to that address. See INSTALL.md.
+services:
+  postgres:
+    ports:
+      - '${POSTGRES_BIND:?Set POSTGRES_BIND in .env to the private address}:5432:5432'

@@ -57,3 +57,4 @@ worker/*.egg-info/
 worker/.pytest_cache/
 worker/.ruff_cache/
 fixtures/private/
+/dist

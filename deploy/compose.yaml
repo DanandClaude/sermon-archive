@@ -1,0 +1,115 @@
+# Sermon Archive on one server.
+#   cp .env.production.example .env      then fill it in (see INSTALL.md)
+#   docker compose up -d
+#
+# Start it from this folder. Nothing here is exposed except ports 80 and 443 (Caddy); the database
+# and the app are only reachable from the other containers.
+
+name: sermon-archive
+
+x-app-env: &app-env
+  NODE_ENV: production
+  ADAPTER_MODE: real
+  DATABASE_URL: postgres://sermon:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/sermon_archive
+  APP_URL: https://${DOMAIN:?Set DOMAIN in .env}
+  SECRETS_KEY: ${SECRETS_KEY:?Set SECRETS_KEY in .env (openssl rand -hex 32)}
+  SMTP_URL: ${SMTP_URL:?Set SMTP_URL in .env}
+  MAIL_FROM: ${MAIL_FROM:?Set MAIL_FROM in .env}
+  S3_BUCKET: ${S3_BUCKET:?Set S3_BUCKET in .env}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_ENDPOINT: ${S3_ENDPOINT:-}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?Set AWS_ACCESS_KEY_ID in .env}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?Set AWS_SECRET_ACCESS_KEY in .env}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in .env}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET in .env}
+
+x-worker-env: &worker-env
+  <<: *app-env
+  ANALYZER: ${ANALYZER:-anthropic}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
+  TRANSCRIBER: whisper
+  WHISPER_MODEL: ${WHISPER_MODEL:-medium}
+  WHISPER_CPU_THREADS: ${WHISPER_CPU_THREADS:-0}
+  TZ: ${TZ:-UTC}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sermon
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: sermon_archive
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sermon -d sermon_archive']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Runs once at every start and applies any new database changes, then exits.
+  migrate:
+    image: ${WEB_IMAGE:-ghcr.io/sermon-archive/sermon-archive-web:latest}
+    build: { context: .., dockerfile: Dockerfile }
+    command: ['node', 'dist/migrate.mjs']
+    restart: 'no'
+    environment:
+      DATABASE_URL: postgres://sermon:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/sermon_archive
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/sermon-archive/sermon-archive-web:latest}
+    build: { context: .., dockerfile: Dockerfile }
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-${DOMAIN:?Set DOMAIN in .env}}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  # Cleans up and transcribes tapes and files approved sermons. It can be turned off here and run on
+  # another computer instead (docker compose up -d --scale worker=0); see INSTALL.md.
+  worker:
+    image: ${WORKER_IMAGE:-ghcr.io/sermon-archive/sermon-archive-worker:latest}
+    build: { context: .., dockerfile: worker/Dockerfile }
+    restart: unless-stopped
+    environment: *worker-env
+    volumes:
+      - models:/models
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # Copies the database to the storage bucket every night.
+  backup:
+    image: ${WORKER_IMAGE:-ghcr.io/sermon-archive/sermon-archive-worker:latest}
+    build: { context: .., dockerfile: worker/Dockerfile }
+    restart: unless-stopped
+    command: ['python', '-m', 'sermon_worker.backup', 'daemon']
+    environment:
+      <<: *worker-env
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
+  models:
+  caddy_data:
+  caddy_config:

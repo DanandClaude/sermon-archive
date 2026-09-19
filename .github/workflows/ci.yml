@@ -74,3 +74,31 @@ jobs:
       - run: ruff check src tests
       - run: ruff format --check src tests
       - run: pytest
+
+  images:
+    # The Docker images must keep building, or the install guide stops working.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          cache-from: type=gha,scope=ci-web
+          cache-to: type=gha,mode=max,scope=ci-web
+      - name: Worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: worker/Dockerfile
+          push: false
+          cache-from: type=gha,scope=ci-worker
+          cache-to: type=gha,mode=max,scope=ci-worker
+      - name: The compose file is valid
+        run: |
+          cd deploy
+          cp .env.production.example .env
+          docker compose -f compose.yaml config -q
