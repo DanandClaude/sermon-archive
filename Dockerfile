@@ -8,6 +8,8 @@ RUN npm ci
 
 FROM deps AS build
 COPY . .
+# Git doesn't keep empty folders, so a fresh copy of the project may have no public/ folder.
+RUN mkdir -p public
 ENV NEXT_OUTPUT=standalone NEXT_TELEMETRY_DISABLED=1
 # The app needs no settings to build. The migration and admin scripts are bundled into single files
 # so the final image does not need the development tools.
