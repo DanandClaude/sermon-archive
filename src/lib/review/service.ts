@@ -615,6 +615,7 @@ export async function approveSermon(
             'conflict',
             'This sermon changed while you were working. Reload and try again.',
           );
+        await enqueueJob(tx, sermonId, 'file');
         await audit(tx, actor, 'sermon.approve', sermonId, { stem });
         return { stem };
       });

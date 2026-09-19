@@ -63,6 +63,7 @@ export type SermonDetail = {
   labelScripture: string | null;
   durationSec: number | null;
   contributorName: string;
+  contributorId: string;
   createdAt: Date;
   failedStage: string | null;
   lastError: string | null;
@@ -185,6 +186,7 @@ export async function getSermonDetail(
     labelScripture: sermon.labelScripture,
     durationSec: sermon.durationSec,
     contributorName: row.contributorName,
+    contributorId: sermon.contributorId,
     createdAt: sermon.createdAt,
     failedStage: sermon.failedStage,
     lastError: sermon.lastError,

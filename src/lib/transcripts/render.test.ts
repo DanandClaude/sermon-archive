@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   buildCues,
@@ -145,5 +147,16 @@ describe('toText', () => {
   });
   it('is empty for an empty transcript', () => {
     expect(toText([])).toBe('');
+  });
+});
+
+describe('shared transcript cases (also rendered by the Python worker)', () => {
+  const { cases } = JSON.parse(
+    readFileSync(join(process.cwd(), 'shared', 'transcript-cases.json'), 'utf8'),
+  ) as { cases: { name: string; segments: Segment[]; srt: string; txt: string }[] };
+
+  it.each(cases.map((c) => [c.name, c] as const))('%s', (_name, c) => {
+    expect(toSrt(c.segments)).toBe(c.srt);
+    expect(toText(c.segments)).toBe(c.txt);
   });
 });
