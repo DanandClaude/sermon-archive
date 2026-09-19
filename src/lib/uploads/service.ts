@@ -8,6 +8,7 @@ import {
   type UploadStore,
 } from '@/adapters/uploads/types';
 import type { Db } from '@/db/client';
+import { isUniqueViolation } from '@/db/errors';
 import { audioAssets, auditLog, jobs, sermons, uploads, type Upload } from '@/db/schema';
 import { enqueueJob } from '@/lib/jobs';
 import { assertCan, type Actor } from '@/lib/permissions';
@@ -221,7 +222,7 @@ export async function startUpload(
   } catch (error) {
     await store.abortMultipartUpload({ key: storageKey, uploadId: storeUploadId }).catch(() => {});
     // Two identical requests raced; the other one won, so join it.
-    if ((error as { code?: string })?.code === '23505') {
+    if (isUniqueViolation(error)) {
       const winner = await existingUpload(db, actor.id, fingerprint);
       if (winner) return describe(store, winner, true);
     }

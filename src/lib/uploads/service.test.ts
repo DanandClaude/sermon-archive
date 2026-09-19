@@ -172,11 +172,16 @@ describe('startUpload', () => {
 
   it('creates one sermon when the same file is started several times at once', async () => {
     const user = await insertUser(db, 'contributor');
-    const results = await Promise.all(
-      Array.from({ length: 5 }, () => startUpload(deps(), user, file())),
-    );
-    expect(new Set(results.map((r) => r.uploadId)).size).toBe(1);
-    expect(await db.select().from(sermons)).toHaveLength(1);
+    // Repeated and wide, because this is a race and one lucky pass proves little.
+    for (let round = 0; round < 3; round++) {
+      const results = await Promise.all(
+        Array.from({ length: 12 }, () =>
+          startUpload(deps(), user, file({ filename: `Tape${round}.mp3` })),
+        ),
+      );
+      expect(new Set(results.map((r) => r.uploadId)).size).toBe(1);
+    }
+    expect(await db.select().from(sermons)).toHaveLength(3);
   });
 
   it('starts fresh when the storage side of an earlier upload has expired', async () => {

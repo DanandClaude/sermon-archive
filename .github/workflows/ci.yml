@@ -100,5 +100,7 @@ jobs:
       - name: The compose file is valid
         run: |
           cd deploy
-          cp .env.production.example .env
+          # The example leaves secrets blank on purpose; fill them so the file can be checked.
+          sed -E 's/^(POSTGRES_PASSWORD|SECRETS_KEY|S3_BUCKET|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET)=.*/\1=x/' .env.production.example > .env
           docker compose -f compose.yaml config -q
+          docker compose -f compose.yaml -f compose.smoke.yaml config -q

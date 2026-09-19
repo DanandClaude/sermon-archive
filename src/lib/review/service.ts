@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Db } from '@/db/client';
+import { isUniqueViolation } from '@/db/errors';
 import { auditLog, scriptureRefs, sermonTags, sermons, tags, type ScriptureRef } from '@/db/schema';
 import { formatClock } from '@/lib/format';
 import { enqueueJob } from '@/lib/jobs';
@@ -559,12 +560,6 @@ export async function deleteScriptureRef(
     });
   });
 }
-
-/** Drizzle wraps the driver's error, so the Postgres code may be on `cause`. */
-const isUniqueViolation = (error: unknown): boolean => {
-  const e = error as { code?: string; cause?: { code?: string } } | null;
-  return e?.code === '23505' || e?.cause?.code === '23505';
-};
 
 // -- approval --------------------------------------------------------------------------------
 
