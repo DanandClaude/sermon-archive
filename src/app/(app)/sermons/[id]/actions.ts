@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireCapability } from '@/lib/auth/guard';
+import type { Capability } from '@/lib/permissions';
 import type { SessionUser } from '@/lib/auth/session';
 import {
   addScriptureRef,
@@ -15,6 +16,8 @@ import {
   updateDetails,
 } from '@/lib/review/service';
 import { isUuid } from '@/lib/sermons/detail';
+import { StorageError } from '@/lib/storage/connections';
+import { retryFiling } from '@/lib/storage/filing';
 
 export type ActionResult<T = object> =
   ({ ok: true } & T) | { ok: false; error: string; fieldErrors?: Record<string, string> };
@@ -27,8 +30,9 @@ export type ActionResult<T = object> =
 async function run<T extends object>(
   sermonId: string,
   work: (user: SessionUser) => Promise<T>,
+  capability: Capability = 'sermon.review',
 ): Promise<ActionResult<T>> {
-  const user = await requireCapability('sermon.review');
+  const user = await requireCapability(capability);
   if (!isUuid(sermonId)) return { ok: false, error: 'Sermon not found.' };
   try {
     const result = await work(user);
@@ -36,6 +40,7 @@ async function run<T extends object>(
     revalidatePath('/library');
     return { ok: true, ...result };
   } catch (error) {
+    if (error instanceof StorageError) return { ok: false, error: error.message };
     if (error instanceof ReviewError) {
       return { ok: false, error: error.message, fieldErrors: error.fieldErrors };
     }
@@ -84,4 +89,16 @@ export async function deletePassageAction(sermonId: string, refId: string) {
 
 export async function approveAction(sermonId: string) {
   return run(sermonId, async (user) => approveSermon(getDb(), user, sermonId));
+}
+
+/** Admins only: tries filing again once the Connections page has been fixed. */
+export async function retryFilingAction(sermonId: string) {
+  return run(
+    sermonId,
+    async (user) => {
+      await retryFiling(getDb(), user, sermonId);
+      return {};
+    },
+    'connections.manage',
+  );
 }

@@ -31,9 +31,9 @@ export function ApproveCard({
         <ul className="m-0 flex list-none flex-col gap-3 p-0 text-sm leading-[1.5]">
           <li>The sermon gets its file name and is marked Approved.</li>
           <li>Everyone who can use the library can then find and play it.</li>
-          <li className="text-muted">
-            Filing to the shared drive and the admin backup isn’t connected yet. Approved sermons
-            are filed once it is.
+          <li>
+            It is copied to the shared archive drive and to the admin-only backup. Each file is read
+            back and checked before the sermon is marked Filed.
           </li>
         </ul>
       )}

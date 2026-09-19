@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const requireCapability = vi.fn();
 const revalidatePath = vi.fn();
+const retryFiling = vi.fn();
+vi.mock('@/lib/storage/filing', () => ({ retryFiling }));
 const service = {
   updateDetails: vi.fn(),
   saveSummary: vi.fn(),
@@ -89,5 +91,34 @@ describe('review server actions', () => {
     const result = await call();
     expect(result.ok).toBe(true);
     expect(service[fn]).toHaveBeenCalledOnce();
+  });
+});
+
+describe('retryFilingAction', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('needs the connections capability, not just the review one', async () => {
+    requireCapability.mockRejectedValue(new Error('NEXT_HTTP_ERROR_FALLBACK;403'));
+    await expect(actions.retryFilingAction(ID)).rejects.toThrow(/403/);
+    expect(requireCapability).toHaveBeenCalledWith('connections.manage');
+    expect(retryFiling).not.toHaveBeenCalled();
+  });
+
+  it('files again and refreshes the page', async () => {
+    requireCapability.mockResolvedValue({ id: 'a1', role: 'admin' });
+    retryFiling.mockResolvedValue(undefined);
+    expect(await actions.retryFilingAction(ID)).toEqual({ ok: true });
+    expect(retryFiling).toHaveBeenCalledWith({ db: true }, { id: 'a1', role: 'admin' }, ID);
+    expect(revalidatePath).toHaveBeenCalledWith(`/sermons/${ID}`);
+  });
+
+  it('turns a storage refusal into a message', async () => {
+    requireCapability.mockResolvedValue({ id: 'a1', role: 'admin' });
+    const { StorageError } = await import('@/lib/storage/connections');
+    retryFiling.mockRejectedValue(new StorageError('conflict', 'Connect both first.'));
+    expect(await actions.retryFilingAction(ID)).toEqual({
+      ok: false,
+      error: 'Connect both first.',
+    });
   });
 });

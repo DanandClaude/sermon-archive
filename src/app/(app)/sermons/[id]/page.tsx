@@ -10,9 +10,11 @@ import { formatReference } from '@/lib/scripture/canon';
 import { isApprovedOrLater } from '@/lib/sermon-status';
 import { getSermonDetail, isUuid } from '@/lib/sermons/detail';
 import { readPeaks } from '@/lib/sermons/peaks';
+import { getFilingSummary } from '@/lib/storage/filing';
 import { ApproveCard } from './ApproveCard';
-import { AutoRefresh } from './AutoRefresh';
+import { AutoRefresh } from '@/components/AutoRefresh';
 import { DetailsForm } from './DetailsForm';
+import { FilingCard } from './FilingCard';
 import { HeaderActions } from './HeaderActions';
 import { ReadOnlyDetails } from './ReadOnlyDetails';
 import { RetryButton } from './RetryButton';
@@ -57,6 +59,8 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
     ? await Promise.all([runningProgress(db, id), getWorkerStatus(db)])
     : [null, null];
 
+  const approvedOrLater = isApprovedOrLater(detail.status);
+  const filing = approvedOrLater ? await getFilingSummary(db, user, id) : null;
   const recorded = formatRecordedOn(detail.recordedOn);
   const meta = [
     recorded ?? 'Date needed',
@@ -81,7 +85,9 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
 
   return (
     <ReviewProvider sermonId={detail.id}>
-      {processing || detail.status === 'analyzing' ? <AutoRefresh /> : null}
+      {processing || detail.status === 'analyzing' || detail.status === 'filing' ? (
+        <AutoRefresh />
+      ) : null}
       <PageHeader
         title={title}
         description={meta}
@@ -210,6 +216,16 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
               approvedAt={detail.approvedAt}
               approverName={detail.approvedByName}
               stem={detail.filenameStem}
+            />
+          ) : null}
+
+          {filing ? (
+            <FilingCard
+              sermonId={detail.id}
+              status={detail.status}
+              summary={filing}
+              isAdmin={user.role === 'admin'}
+              isOwner={detail.contributorId === user.id}
             />
           ) : null}
 
