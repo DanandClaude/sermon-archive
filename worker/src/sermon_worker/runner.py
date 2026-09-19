@@ -1,4 +1,5 @@
-"""Runs jobs: cleanup, then transcription. Each stage writes new assets and never edits old ones."""
+"""Runs jobs: cleanup, transcription, then analysis. Each stage writes new records and never edits
+old ones (the uploaded original is never touched)."""
 
 from __future__ import annotations
 
@@ -13,10 +14,13 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from . import pipeline, queue
+from .analysis import Analyzer, run_analysis
+from .analyzers import make_analyzer
 from .clean import CleanConfig, clean_audio
 from .config import Config
 from .media import MediaError, compute_peaks
 from .queue import Job, PermanentError, StageMoved
+from .scripture import Reference, tags_for_book
 from .store import ObjectNotFound, ObjectStore
 from .transcribe import Transcriber, build_prompt
 
@@ -62,8 +66,10 @@ class Runner:
         clean_config: CleanConfig | None = None,
         heartbeat=None,
         clock: Callable[[], float] = time.monotonic,
+        analyzer: Analyzer | None = None,
     ):
         self.conn, self.config, self.store, self.transcriber = conn, config, store, transcriber
+        self.analyzer = analyzer or make_analyzer(config)
         self.clean_config = clean_config or CleanConfig()
         self.heartbeat = heartbeat
         self.clock = clock
@@ -89,7 +95,9 @@ class Runner:
             if not queue.start_stage(self.conn, job):
                 queue.cancel_job(self.conn, job, "The sermon is no longer waiting for this step.")
                 return
-            {"clean": self._clean, "transcribe": self._transcribe}[job.type](job)
+            {"clean": self._clean, "transcribe": self._transcribe, "analyze": self._analyze}[
+                job.type
+            ](job)
         except StageMoved as moved:
             queue.cancel_job(self.conn, job, str(moved))
         except Exception as error:  # every failure is recorded; none may kill the worker
@@ -242,6 +250,149 @@ class Runner:
             if cfg["onSuccess"]["enqueue"]:
                 queue.enqueue(self.conn, job.sermon_id, cfg["onSuccess"]["enqueue"])
 
+    # -- analysis -----------------------------------------------------------------------------
+
+    def _ensure_tag(self, kind: str, name: str) -> str:
+        row = self.conn.execute(
+            "SELECT id FROM tags WHERE kind = %s::tag_kind AND lower(name) = lower(%s)",
+            (kind, name),
+        ).fetchone()
+        if row is None:
+            self.conn.execute(
+                "INSERT INTO tags (kind, name) VALUES (%s::tag_kind, %s) ON CONFLICT DO NOTHING",
+                (kind, name),
+            )
+            row = self.conn.execute(
+                "SELECT id FROM tags WHERE kind = %s::tag_kind AND lower(name) = lower(%s)",
+                (kind, name),
+            ).fetchone()
+        return str(row["id"])
+
+    def _analyze(self, job: Job) -> None:
+        only = (job.payload or {}).get("only")
+        sermon = self.conn.execute(
+            "SELECT speaker, recorded_on, label_scripture, duration_sec, title, summary_source, "
+            "primary_passage FROM sermons WHERE id = %s",
+            (job.sermon_id,),
+        ).fetchone()
+        transcript = self.conn.execute(
+            "SELECT version, segments FROM transcripts WHERE sermon_id = %s "
+            "ORDER BY version DESC LIMIT 1",
+            (job.sermon_id,),
+        ).fetchone()
+        if transcript is None:
+            raise PermanentError("This sermon has no transcript to analyze.")
+        known_topics = [
+            r["name"]
+            for r in self.conn.execute(
+                "SELECT name FROM tags WHERE kind = 'topic' ORDER BY name LIMIT 200"
+            ).fetchall()
+        ]
+        queue.set_progress(self.conn, job.id, 10)
+        analysis = run_analysis(
+            self.analyzer,
+            transcript["segments"],
+            duration_sec=sermon["duration_sec"],
+            speaker=self._speaker(job.sermon_id),
+            label_scripture=sermon["label_scripture"],
+            recorded_on=sermon["recorded_on"].isoformat() if sermon["recorded_on"] else None,
+            known_topics=known_topics,
+            only=only,
+        )
+        queue.set_progress(self.conn, job.id, 90)
+
+        cfg = pipeline.job_config("analyze")
+        with self.conn.transaction():
+            self.conn.execute("SELECT id FROM sermons WHERE id = %s FOR UPDATE", (job.sermon_id,))
+            self.conn.execute(
+                "INSERT INTO analyses (sermon_id, transcript_version, analyzer, model, prompt_version, "
+                "raw_output) VALUES (%s, %s, %s, %s, %s, %s)",
+                (
+                    job.sermon_id, transcript["version"], self.analyzer.name, self.analyzer.model,
+                    self.analyzer.prompt_version,
+                    Jsonb({"only": only, "output": analysis.output.raw}),
+                ),
+            )  # fmt: skip
+            if only == "summary":
+                self._save_summary(job.sermon_id, analysis.summary)
+            else:
+                self._save_analysis(job.sermon_id, sermon, analysis)
+            queue.mark_succeeded(self.conn, job.id)
+            queue.advance_sermon(
+                self.conn, job.sermon_id, cfg["runningStatus"], cfg["onSuccess"]["status"]
+            )
+
+    def _save_summary(self, sermon_id: str, summary: str | None) -> None:
+        if summary:
+            self.conn.execute(
+                "UPDATE sermons SET summary_text = %s, summary_source = 'auto', updated_at = now() "
+                "WHERE id = %s",
+                (summary, sermon_id),
+            )
+
+    def _save_analysis(self, sermon_id: str, sermon: dict, analysis) -> None:
+        """Fills in what a person has not already decided. A title, a summary they edited, or a
+        main passage they chose is never overwritten by a later analysis."""
+        set_parts, values = [], []
+        if analysis.title and not (sermon["title"] or "").strip():
+            set_parts.append("title = %s")
+            values.append(analysis.title)
+        if analysis.summary and sermon["summary_source"] != "edited":
+            set_parts.append("summary_text = %s, summary_source = 'auto'")
+            values.append(analysis.summary)
+        primary = analysis.primary
+        set_primary = primary is not None and Reference.from_json(sermon["primary_passage"]) is None
+        if set_primary:
+            set_parts.append("primary_passage = %s")
+            values.append(Jsonb(primary.as_json()))
+        if set_parts:
+            self.conn.execute(
+                f"UPDATE sermons SET {', '.join(set_parts)}, updated_at = now() WHERE id = %s",
+                (*values, sermon_id),
+            )
+
+        wanted: list[tuple[str, str]] = []
+        if set_primary:
+            wanted += tags_for_book(primary.book)
+            self.conn.execute(
+                "DELETE FROM sermon_tags WHERE sermon_id = %s AND tag_id IN "
+                "(SELECT id FROM tags WHERE kind IN ('testament', 'genre', 'book'))",
+                (sermon_id,),
+            )
+        wanted += [("topic", t) for t in analysis.topics]
+        for kind, name in wanted:
+            self.conn.execute(
+                "INSERT INTO sermon_tags (sermon_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (sermon_id, self._ensure_tag(kind, name)),
+            )
+
+        # Replace what an earlier run found, but never a passage a person added or corrected, and
+        # never bring back one they deleted.
+        self.conn.execute(
+            "DELETE FROM scripture_refs WHERE sermon_id = %s AND source = 'auto' "
+            "AND edited_at IS NULL AND deleted_at IS NULL",
+            (sermon_id,),
+        )
+        kept = self.conn.execute(
+            "SELECT book, chapter, verse_start, verse_end, deleted_at IS NOT NULL AS gone "
+            "FROM scripture_refs WHERE sermon_id = %s",
+            (sermon_id,),
+        ).fetchall()
+        taken = {(r["book"], r["chapter"], r["verse_start"], r["verse_end"]) for r in kept}
+        for p in analysis.passages:
+            key = (p.ref.book, p.ref.chapter, p.ref.verse_start, p.ref.verse_end)
+            if key in taken:
+                continue
+            self.conn.execute(
+                "INSERT INTO scripture_refs (sermon_id, book, chapter, verse_start, verse_end, "
+                "spoken_at_sec, context_note, is_main_text, source, confidence, detected_original) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'auto', %s, %s)",
+                (
+                    sermon_id, p.ref.book, p.ref.chapter, p.ref.verse_start, p.ref.verse_end,
+                    round(p.spoken_at, 1), p.note, p.is_main, p.confidence, Jsonb(p.ref.as_json()),
+                ),
+            )  # fmt: skip
+
     # -- loop ---------------------------------------------------------------------------------
 
     def run_forever(
@@ -253,6 +404,9 @@ class Runner:
                 reaped = queue.reap_stale(self.conn, self.config.stale_job_seconds)
                 if reaped:
                     print(f"took back {reaped} abandoned job(s)", flush=True)
+                queued = queue.reconcile_analysis(self.conn)
+                if queued:
+                    print(f"queued analysis for {queued} finished transcript(s)", flush=True)
                 last_reap = self.clock()
             if not self.run_once():
                 sleep(self.config.poll_seconds)

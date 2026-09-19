@@ -60,6 +60,12 @@ class Config:
     # "cleaned" for a tape that is too noisy to transcribe as recorded.
     transcribe_source: str = "original"
     low_confidence_threshold: float = 0.5
+    # "anthropic" sends the transcript text (never audio) to Claude to write the title, summary
+    # and topic tags and to judge the scripture references. "fake" writes placeholders so the
+    # pipeline can be tried without an account; it is refused in production.
+    analyzer: str = "fake"
+    anthropic_model: str = "claude-sonnet-5"
+    anthropic_api_key: str | None = field(default=None, repr=False)
 
     @property
     def real_mode(self) -> bool:
@@ -90,6 +96,14 @@ def from_env(environ: dict[str, str] | None = None) -> Config:
     if source not in ("cleaned", "original"):
         raise ConfigError("TRANSCRIBE_SOURCE must be cleaned or original.")
 
+    analyzer = env.get("ANALYZER") or ("anthropic" if node_env == "production" else "fake")
+    if analyzer not in ("anthropic", "fake"):
+        raise ConfigError(f"ANALYZER must be anthropic or fake, not {analyzer!r}.")
+    if analyzer == "fake" and node_env == "production":
+        raise ConfigError("ANALYZER=fake is not allowed in production.")
+    if analyzer == "anthropic" and not env.get("ANTHROPIC_API_KEY"):
+        raise ConfigError("ANTHROPIC_API_KEY is required when ANALYZER=anthropic.")
+
     kwargs: dict = {}
     if env.get("DATA_DIR"):
         kwargs["data_dir"] = Path(env["DATA_DIR"]).expanduser()
@@ -115,5 +129,8 @@ def from_env(environ: dict[str, str] | None = None) -> Config:
         allow_model_download=env.get("ALLOW_MODEL_DOWNLOAD") == "1",
         transcribe_source=source,
         low_confidence_threshold=float(env.get("LOW_CONFIDENCE_THRESHOLD", "0.5")),
+        analyzer=analyzer,
+        anthropic_model=env.get("ANTHROPIC_MODEL") or "claude-sonnet-5",
+        anthropic_api_key=env.get("ANTHROPIC_API_KEY") or None,
         **kwargs,
     )

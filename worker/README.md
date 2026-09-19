@@ -5,7 +5,7 @@ Takes each uploaded tape through two steps and writes the results back:
 1. **Clean up.** A gentle rumble filter, hum notches only if hum is detected, and loudness normalisation to about -16 LUFS. Denoising, click removal and declipping are available but off by default (see below). Writes a 192 kbps mono MP3 and waveform data for the original and the cleaned copy. The original is never touched.
 2. **Transcribe.** Whisper with word timings and guards against inventing text over hiss and silence. Words it was unsure of are flagged, and long segments are split at sentence ends so timestamps are useful. Two engines: **MLX** (the Mac's GPU, fast) or **faster-whisper** (CPU, runs anywhere). By default it transcribes the original audio.
 
-It runs on this Mac (or any Linux machine), talks only to your Postgres database and your upload storage, and sends nothing to a third party. The app queues work in a `jobs` table; the worker claims jobs from it, so it can be stopped and started at any time and several workers can run at once.
+It runs on this Mac (or any Linux machine), talks only to your Postgres database and your upload storage, and sends no audio to a third party. The optional analysis step can send transcript text (only) to the Anthropic API; see _Analysis_ below. The app queues work in a `jobs` table; the worker claims jobs from it, so it can be stopped and started at any time and several workers can run at once.
 
 ## Set up
 
@@ -91,6 +91,17 @@ Log: `~/Library/Logs/sermon-worker.log`. Two things to know:
 
 These files are checked for syntax but the install has not been run end to end.
 
+3. **Analyze.** Finds the passages the pastor names aloud, then writes a title, a short summary and topic tags.
+
+## Analysis
+
+Runs after transcription (`analyze` job). Nothing here touches audio.
+
+- **Passages.** `parser.py` reads the word-timed transcript for spoken and written references ("First Peter chapter five verses two and three", "Hebrews 13:17", "Psalm twenty-three"), follows "verse 5" or "chapter 4 verse 2" from the last book named, and checks each one against the canon (`shared/canon.json`, chapter and verse counts derived from the public-domain KJV). It errs toward proposing too much. The analyzer then rejects false ones, corrects a chapter it guessed wrong, and adds passages the parser missed (each must quote the words from the transcript, so it can be timed). `analysis.py` merges repeat mentions into one entry at the earliest time and picks the main text. The tape label the contributor typed always wins as the main passage.
+- **Analyzers.** `ANALYZER=fake` needs nothing and writes placeholder text (refused in production). `ANALYZER=anthropic` sends the timed transcript text and the candidate list to Claude (`ANTHROPIC_MODEL`, default `claude-sonnet-5`) and asks for JSON that matches a schema. Setup problems (bad key, unknown model) fail the sermon with a plain message; rate limits and outages retry with backoff. The raw answer, model and prompt version are kept in `analyses`.
+- **What it will not overwrite.** A title already typed, a summary a person edited, a main passage already chosen, and passages a person added, corrected or deleted. Regenerate in the app queues an `analyze` job with `{"only": "summary"}`.
+- **Old transcripts.** On start, and every minute, the worker queues analysis for any sermon waiting at "analyzing" that has no job.
+
 ## Storage
 
 Same layout as the app: originals under `originals/`, and everything the worker makes under `cleaned/` and `peaks/`. Keys include the job id, so a retry writes new objects instead of editing old ones. The worker refuses to write under `originals/` at all. In development it reads and writes `.data/uploads`; with `ADAPTER_MODE=real` (production only) it uses the same S3 bucket as the app.
@@ -98,7 +109,7 @@ Same layout as the app: originals under `originals/`, and everything the worker 
 ## Tests
 
 ```sh
-npm run worker:test           # about 140 tests: real ffmpeg, a real Postgres database, scripted and stubbed transcribers
+npm run worker:test           # about 300 tests: real ffmpeg, a real Postgres database, scripted and stubbed transcribers and analyzers
 npm run worker:lint
 ```
 

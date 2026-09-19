@@ -22,6 +22,7 @@ class Job:
     type: str
     attempts: int
     max_attempts: int
+    payload: dict | None = None
 
 
 class PermanentError(Exception):
@@ -38,8 +39,9 @@ def connect(url: str) -> psycopg.Connection:
 
 def _job(row: dict) -> Job:
     return Job(
-        str(row["id"]), str(row["sermon_id"]), row["type"], row["attempts"], row["max_attempts"]
-    )
+        str(row["id"]), str(row["sermon_id"]), row["type"], row["attempts"], row["max_attempts"],
+        row.get("payload"),
+    )  # fmt: skip
 
 
 def claim_job(conn: psycopg.Connection, worker_id: str) -> Job | None:
@@ -52,7 +54,7 @@ def claim_job(conn: psycopg.Connection, worker_id: str) -> Job | None:
           SELECT id FROM jobs WHERE state = 'queued' AND run_after <= now()
           ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
         )
-        RETURNING id, sermon_id, type, attempts, max_attempts
+        RETURNING id, sermon_id, type, attempts, max_attempts, payload
         """,
         {"worker": worker_id},
     ).fetchone()
@@ -98,6 +100,23 @@ def enqueue(conn: psycopg.Connection, sermon_id: str, job_type: str) -> bool:
         (sermon_id, job_type),
     ).fetchone()
     return row is not None
+
+
+def reconcile_analysis(conn: psycopg.Connection) -> int:
+    """Queues analysis for any sermon waiting at "analyzing" that has no analysis job, such as
+    transcripts finished before analysis existed. Safe to run at any time."""
+    rows = conn.execute(
+        """
+        INSERT INTO jobs (sermon_id, type)
+        SELECT s.id, 'analyze' FROM sermons s
+        WHERE s.status = 'analyzing' AND s.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM transcripts t WHERE t.sermon_id = s.id)
+          AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.sermon_id = s.id AND j.type = 'analyze'
+                          AND j.state IN ('queued', 'running'))
+        ON CONFLICT DO NOTHING RETURNING id
+        """
+    ).fetchall()
+    return len(rows)
 
 
 def advance_sermon(conn: psycopg.Connection, sermon_id: str, old: str, new: str) -> None:
@@ -158,7 +177,7 @@ def reap_stale(conn: psycopg.Connection, stale_seconds: int) -> int:
     """Takes back jobs whose worker vanished (crash, power off). They count as a failed attempt."""
     rows = conn.execute(
         """
-        SELECT id, sermon_id, type, attempts, max_attempts FROM jobs
+        SELECT id, sermon_id, type, attempts, max_attempts, payload FROM jobs
         WHERE state = 'running' AND heartbeat_at < now() - make_interval(secs => %s)
         """,
         (stale_seconds,),

@@ -7,6 +7,7 @@ import sys
 import threading
 
 from . import queue
+from .analyzers import make_analyzer
 from .config import REPO_ROOT, ConfigError, from_env, load_env_file
 from .runner import Runner
 from .store import make_store
@@ -28,14 +29,17 @@ def main(argv: list[str]) -> int:
 
     store = make_store(config)
     transcriber = make_transcriber(config)
+    analyzer = make_analyzer(config)
     info = {
         "host": config.worker_id,
         "store": "s3" if config.real_mode else "local",
         "transcriber": transcriber.name,
+        "analyzer": analyzer.name,
     }
     print(
         f"Sermon worker {config.worker_id} starting: store={info['store']} "
-        f"transcriber={transcriber.name} source={config.transcribe_source}",
+        f"transcriber={transcriber.name} source={config.transcribe_source} "
+        f"analyzer={analyzer.name}",
         flush=True,
     )
 
@@ -44,7 +48,10 @@ def main(argv: list[str]) -> int:
         config.database_url, config.worker_id, config.heartbeat_seconds, info
     )
     heartbeat.start()
-    runner = Runner(conn, config, store, transcriber, heartbeat=heartbeat)
+    queued = queue.reconcile_analysis(conn)
+    if queued:
+        print(f"queued analysis for {queued} finished transcript(s)", flush=True)
+    runner = Runner(conn, config, store, transcriber, heartbeat=heartbeat, analyzer=analyzer)
     try:
         if once:
             while not stop.is_set() and runner.run_once():

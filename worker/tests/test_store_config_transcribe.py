@@ -145,9 +145,29 @@ class TestConfig:
                 "ADAPTER_MODE": "real",
                 "S3_BUCKET": "b",
                 "S3_REGION": "r",
+                "ANTHROPIC_API_KEY": "sk-test",
             }
         )
         assert cfg.real_mode and cfg.s3_bucket == "b"
+        assert cfg.analyzer == "anthropic"
+
+    def test_analysis_is_fake_in_development_unless_asked_otherwise(self):
+        assert from_env(BASE_ENV).analyzer == "fake"
+        cfg = from_env({**BASE_ENV, "ANALYZER": "anthropic", "ANTHROPIC_API_KEY": "sk-test"})
+        assert (cfg.analyzer, cfg.anthropic_model) == ("anthropic", "claude-sonnet-5")
+        assert "sk-test" not in repr(cfg)
+
+    def test_the_real_analyzer_needs_a_key_and_a_known_name(self):
+        with pytest.raises(ConfigError, match="ANTHROPIC_API_KEY"):
+            from_env({**BASE_ENV, "ANALYZER": "anthropic"})
+        with pytest.raises(ConfigError, match="ANALYZER must be"):
+            from_env({**BASE_ENV, "ANALYZER": "gpt"})
+
+    def test_the_fake_analyzer_is_refused_in_production(self):
+        with pytest.raises(ConfigError, match="ANALYZER=fake"):
+            from_env({**BASE_ENV, "NODE_ENV": "production", "ANALYZER": "fake"})
+        with pytest.raises(ConfigError, match="ANTHROPIC_API_KEY"):
+            from_env({**BASE_ENV, "NODE_ENV": "production"})
 
     def test_the_scripted_transcriber_is_refused_in_production(self):
         with pytest.raises(ConfigError, match="not allowed in production"):

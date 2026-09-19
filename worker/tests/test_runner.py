@@ -235,17 +235,16 @@ class TestTranscribeJob:
         assert words[1] == {"w": "to", "start": 0.5, "end": 0.9, "prob": 0.3}
         assert t["low_confidence"] == [[0, 1]]
         assert sermon_row(conn, sermon)["status"] == "analyzing"
-        assert (
-            conn.execute(
-                "SELECT count(*) AS n FROM jobs WHERE state IN ('queued', 'running')"
-            ).fetchone()["n"]
-            == 0
-        )
+        waiting = conn.execute(
+            "SELECT type FROM jobs WHERE state IN ('queued', 'running') AND sermon_id = %s",
+            (sermon,),
+        ).fetchall()
+        assert [j["type"] for j in waiting] == ["analyze"]
 
-    def test_the_whole_pipeline_runs_from_upload_to_transcript(self, conn, config, store, uploaded):
+    def test_the_whole_pipeline_runs_from_upload_to_review(self, conn, config, store, uploaded):
         sermon, *_ = uploaded
-        assert run_until_idle(make_runner(conn, config, store, Scripted())) == 2
-        assert sermon_row(conn, sermon)["status"] == "analyzing"
+        assert run_until_idle(make_runner(conn, config, store, Scripted())) == 3
+        assert sermon_row(conn, sermon)["status"] == "needs_review"
 
     def test_transcribes_the_original_by_default(self, conn, config, store, cleaned):
         _, original_key = cleaned
@@ -282,6 +281,7 @@ class TestTranscribeJob:
         sermon, _ = cleaned
         make_runner(conn, config, store, Scripted("first")).run_once()
         # the app's Retry: back into the stage, with a fresh job
+        conn.execute("DELETE FROM jobs WHERE type = 'analyze'")
         conn.execute("UPDATE sermons SET status = 'transcribing' WHERE id = %s", (sermon,))
         add_job(conn, sermon, "transcribe")
         make_runner(conn, config, store, Scripted("second")).run_once()
@@ -387,7 +387,7 @@ class TestLoop:
         runner = make_runner(conn, config, store)
         runner.run_forever(lambda: stop_after_idle["idle"], sleep=sleep)
         assert sleeps == [config.poll_seconds]
-        assert sermon_row(conn, uploaded[0])["status"] == "analyzing"
+        assert sermon_row(conn, uploaded[0])["status"] == "needs_review"
 
     def test_takes_back_abandoned_jobs_from_a_crashed_worker(self, conn, config, store):
         sermon = make_sermon(conn, "cleaning")
