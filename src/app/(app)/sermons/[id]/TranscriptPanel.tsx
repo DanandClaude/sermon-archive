@@ -1,9 +1,9 @@
 'use client';
 
-import { useId, useMemo, useState, useSyncExternalStore } from 'react';
+import { memo, useCallback, useId, useMemo, useState, useSyncExternalStore } from 'react';
 import { formatClock } from '@/lib/format';
 import type { Segment } from '@/lib/transcripts/render';
-import { usePlayback } from './ReviewContext';
+import { usePlayback, useTime } from './ReviewContext';
 
 /** Index of the segment being spoken at `time`, or -1 before the first one. */
 export function segmentAt(segments: Segment[], time: number): number {
@@ -37,13 +37,18 @@ export function TranscriptPanel({
   segments: Segment[];
   lowConfidence: [number, number][];
 }) {
-  const { time, seek } = usePlayback();
+  const { seek } = usePlayback();
+  const time = useTime();
   const active = segmentAt(segments, time);
   const bodyId = useId();
-  const doubtful = useMemo(
-    () => new Set(lowConfidence.map(([i, j]) => `${i}:${j}`)),
-    [lowConfidence],
-  );
+  const doubtful = useMemo(() => {
+    const bySegment = new Map<number, Set<number>>();
+    for (const [i, j] of lowConfidence) {
+      (bySegment.get(i) ?? bySegment.set(i, new Set()).get(i)!).add(j);
+    }
+    return bySegment;
+  }, [lowConfidence]);
+  const jump = useCallback((seconds: number) => seek(seconds), [seek]);
   // Closed to begin with, so the page is short; the choice is remembered for next time.
   const stored = useSyncExternalStore(
     () => () => {},
@@ -109,44 +114,81 @@ export function TranscriptPanel({
         <p className="mb-0 mt-1.5 text-[13px] text-muted">
           Select a time to jump there. Words the transcriber wasn’t sure of are underlined.
         </p>
-        <ol className="m-0 mt-3 list-none p-0">
-          {segments.map((segment, i) => (
-            <li
-              key={i}
-              aria-current={active === i ? 'true' : undefined}
-              className={`flex gap-4 rounded-xl px-3 py-2.5 ${active === i ? 'bg-spruce-mid' : ''}`}
-            >
-              <button
-                type="button"
-                onClick={() => seek(segment.start)}
-                className="h-11 flex-none self-start rounded-lg px-2 font-mono text-[13px] font-medium text-spruce"
-              >
-                {formatClock(segment.start)}
-                <span className="sr-only"> Play from here</span>
-              </button>
-              <p className="m-0 min-w-0 flex-1 self-center text-[15px] leading-[1.6]">
-                {segment.words.length > 0
-                  ? segment.words.map((word, j) => (
-                      <span key={j}>
-                        {j > 0 ? ' ' : ''}
-                        {doubtful.has(`${i}:${j}`) ? (
-                          <span
-                            title="The transcriber wasn’t sure of this word"
-                            className="underline decoration-amber-underline decoration-dotted decoration-2 underline-offset-4"
-                          >
-                            {word.w}
-                          </span>
-                        ) : (
-                          word.w
-                        )}
-                      </span>
-                    ))
-                  : segment.text}
-              </p>
-            </li>
-          ))}
-        </ol>
+        {open ? (
+          <ol className="m-0 mt-3 list-none p-0">
+            {segments.map((segment, i) => (
+              <SegmentRow
+                key={i}
+                segment={segment}
+                active={active === i}
+                doubtful={doubtful.get(i) ?? null}
+                onSeek={jump}
+              />
+            ))}
+          </ol>
+        ) : null}
       </div>
     </section>
   );
+}
+
+/**
+ * One line of the transcript. It only re-renders when it becomes or stops being the line being
+ * played, so the playback tick touches two rows, not thousands of words.
+ */
+const SegmentRow = memo(function SegmentRow({
+  segment,
+  active,
+  doubtful,
+  onSeek,
+}: {
+  segment: Segment;
+  active: boolean;
+  doubtful: Set<number> | null;
+  onSeek: (seconds: number) => void;
+}) {
+  return (
+    <li
+      aria-current={active ? 'true' : undefined}
+      className={`flex gap-4 rounded-xl px-3 py-2.5 ${active ? 'bg-spruce-mid' : ''}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSeek(segment.start)}
+        className="h-11 flex-none self-start rounded-lg px-2 font-mono text-[13px] font-medium text-spruce"
+      >
+        {formatClock(segment.start)}
+        <span className="sr-only"> Play from here</span>
+      </button>
+      <p className="m-0 min-w-0 flex-1 self-center text-[15px] leading-[1.6]">
+        {segment.words.length > 0 && doubtful ? words(segment, doubtful) : segment.text}
+      </p>
+    </li>
+  );
+});
+
+/** Plain text, with only the words the transcriber doubted marked up, to keep the page light. */
+function words(segment: Segment, doubtful: Set<number>) {
+  const pieces: React.ReactNode[] = [];
+  let run: string[] = [];
+  const flush = () => {
+    if (run.length) pieces.push(run.join(' '));
+    run = [];
+  };
+  segment.words.forEach((word, j) => {
+    if (!doubtful.has(j)) return void run.push(word.w);
+    flush();
+    pieces.push(
+      <span
+        key={j}
+        title="The transcriber wasn’t sure of this word"
+        className="underline decoration-amber-underline decoration-dotted decoration-2 underline-offset-4"
+      >
+        {word.w}
+      </span>,
+    );
+  });
+  flush();
+  // Put back the spaces between text and marked words.
+  return pieces.flatMap((piece, i) => (i === 0 ? [piece] : [' ', piece]));
 }

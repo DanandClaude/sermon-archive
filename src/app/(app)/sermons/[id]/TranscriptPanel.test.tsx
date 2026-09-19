@@ -23,14 +23,15 @@ describe('TranscriptPanel', () => {
   it('starts closed so the page is short, with the toggle announcing its state', () => {
     setup();
     expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    expect(screen.getByText('Good morning church.').closest('[hidden]')).not.toBeNull();
+    // Nothing is drawn while it is closed, which keeps the page light.
+    expect(screen.queryByText('Good morning church.')).toBeNull();
   });
 
   it('opens and closes with the button', () => {
     setup();
     fireEvent.click(toggle());
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('Good morning church.').closest('[hidden]')).toBeNull();
+    expect(screen.getByText('Good morning church.')).toBeTruthy();
     fireEvent.click(toggle());
     expect(toggle().getAttribute('aria-expanded')).toBe('false');
   });
@@ -55,6 +56,25 @@ describe('TranscriptPanel', () => {
     } finally {
       Storage.prototype.setItem = original;
     }
+  });
+
+  it('marks only the words the transcriber doubted, and keeps every word and space', () => {
+    const words = 'Turn to Hebrews six now'
+      .split(' ')
+      .map((w, i) => ({ w, start: i, end: i + 1, prob: 0.9 }));
+    render(
+      <ReviewProvider sermonId="s1">
+        <TranscriptPanel
+          segments={[{ start: 0, end: 5, text: 'Turn to Hebrews six now', words }]}
+          lowConfidence={[[0, 2]]}
+        />
+      </ReviewProvider>,
+    );
+    fireEvent.click(toggle());
+    const line = screen.getByText('Hebrews').closest('p')!;
+    expect(line.textContent).toBe('Turn to Hebrews six now');
+    expect(line.querySelectorAll('[title]')).toHaveLength(1);
+    expect(screen.getByTitle(/wasn’t sure/).textContent).toBe('Hebrews');
   });
 
   it('keeps the count of doubtful words visible while closed', () => {

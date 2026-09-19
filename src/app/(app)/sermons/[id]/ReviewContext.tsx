@@ -15,8 +15,6 @@ import type { ActionResult } from './actions';
 /** What the audio player shares with the passages, transcript and forms around it. */
 type Playback = {
   audioRef: RefObject<HTMLAudioElement | null>;
-  /** Seconds. Updated a few times a second while playing. */
-  time: number;
   setTime: (seconds: number) => void;
   /** The exact position right now, for "use current playback time". */
   currentTime: () => number;
@@ -41,6 +39,9 @@ type Review = {
 };
 
 const ReviewContext = createContext<Review | null>(null);
+// The playback position changes several times a second. It has its own context so that only the
+// parts of the page that show it re-render on every tick, not the forms and buttons.
+const TimeContext = createContext(0);
 
 export function ReviewProvider({ sermonId, children }: { sermonId: string; children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -61,13 +62,17 @@ export function ReviewProvider({ sermonId, children }: { sermonId: string; child
   const value = useMemo<Review>(
     () => ({
       sermonId,
-      playback: { audioRef, time, setTime, currentTime, seek },
+      playback: { audioRef, setTime, currentTime, seek },
       draft,
       registerDraft,
     }),
-    [sermonId, time, currentTime, seek, draft, registerDraft],
+    [sermonId, currentTime, seek, draft, registerDraft],
   );
-  return <ReviewContext.Provider value={value}>{children}</ReviewContext.Provider>;
+  return (
+    <ReviewContext.Provider value={value}>
+      <TimeContext.Provider value={time}>{children}</TimeContext.Provider>
+    </ReviewContext.Provider>
+  );
 }
 
 export function useReview(): Review {
@@ -76,4 +81,8 @@ export function useReview(): Review {
   return value;
 }
 
+/** Controls for the audio. Does not change as it plays. */
 export const usePlayback = () => useReview().playback;
+
+/** Where the audio is now, in seconds. Re-renders the caller a few times a second while playing. */
+export const useTime = () => useContext(TimeContext);

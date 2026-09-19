@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { formatClock } from '@/lib/format';
 
 import type { Peaks } from '@/lib/sermons/peaks';
@@ -99,18 +99,8 @@ export function Waveform({
             <rect x="0" y="0" width={progress * BARS} height="64" />
           </clipPath>
         </defs>
-        {[false, true].map((isPlayed) => (
-          <g
-            key={String(isPlayed)}
-            fill={isPlayed ? played : base}
-            clipPath={isPlayed ? `url(#${clip})` : undefined}
-          >
-            {bars.map((p, i) => {
-              const h = Math.max(3, p * 60);
-              return <rect key={i} x={i + 0.15} y={32 - h / 2} width={0.7} height={h} rx={0.3} />;
-            })}
-          </g>
-        ))}
+        <Bars bars={bars} fill={base} />
+        <Bars bars={bars} fill={played} clipPath={`url(#${clip})`} />
       </svg>
       <span
         aria-hidden="true"
@@ -120,3 +110,23 @@ export function Waveform({
     </div>
   );
 }
+
+/** The bars themselves. They only change when the recording does, not on every playback tick. */
+const Bars = memo(function Bars({
+  bars,
+  fill,
+  clipPath,
+}: {
+  bars: number[];
+  fill: string;
+  clipPath?: string;
+}) {
+  return (
+    <g fill={fill} clipPath={clipPath}>
+      {bars.map((p, i) => {
+        const h = Math.max(3, p * 60);
+        return <rect key={i} x={i + 0.15} y={32 - h / 2} width={0.7} height={h} rx={0.3} />;
+      })}
+    </g>
+  );
+});

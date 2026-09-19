@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { formatClock } from '@/lib/format';
 import type { Peaks } from '@/lib/sermons/peaks';
-import { usePlayback } from './ReviewContext';
+import { usePlayback, useTime } from './ReviewContext';
 import { Waveform } from './Waveform';
 
 type Source = 'cleaned' | 'original';
@@ -25,7 +25,8 @@ export function SermonPlayer({
   cleanedPeaks: Peaks | null;
   durationSec: number | null;
 }) {
-  const { audioRef, time, setTime, seek } = usePlayback();
+  const { audioRef, setTime, seek } = usePlayback();
+  const time = useTime();
   const resume = useRef<{ time: number; play: boolean } | null>(null);
   const [source, setSource] = useState<Source>(cleanedUrl ? 'cleaned' : 'original');
   const [playing, setPlaying] = useState(false);

@@ -6,7 +6,7 @@ import { formatReference } from '@/lib/scripture/canon';
 import type { ScriptureItem } from '@/lib/sermons/detail';
 import { deletePassageAction } from './actions';
 import { PassageDialog } from './PassageDialog';
-import { usePlayback, useReview } from './ReviewContext';
+import { usePlayback, useReview, useTime } from './ReviewContext';
 
 /** Index of the passage being spoken about at `time`: the last one that started, or -1. */
 export function currentPassage(items: ScriptureItem[], time: number): number {
@@ -22,7 +22,8 @@ const iconButton =
 
 export function ScripturePanel({ items, canEdit }: { items: ScriptureItem[]; canEdit: boolean }) {
   const { sermonId } = useReview();
-  const { time, seek } = usePlayback();
+  const { seek } = usePlayback();
+  const time = useTime();
   const [dialog, setDialog] = useState<{ open: boolean; item: ScriptureItem | null }>({
     open: false,
     item: null,
