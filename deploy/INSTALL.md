@@ -34,7 +34,7 @@ transcription runs on your own server or computer.
    ```
 4. Get the Sermon Archive files onto the server:
    ```bash
-   git clone https://github.com/OWNER/sermon-archive.git
+   git clone https://github.com/DanandClaude/sermon-archive.git
    cd sermon-archive/deploy
    ```
 

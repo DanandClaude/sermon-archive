@@ -51,7 +51,7 @@ services:
 
   # Runs once at every start and applies any new database changes, then exits.
   migrate:
-    image: ${WEB_IMAGE:-ghcr.io/sermon-archive/sermon-archive-web:latest}
+    image: ${WEB_IMAGE:-ghcr.io/danandclaude/sermon-archive-web:latest}
     build: { context: .., dockerfile: Dockerfile }
     command: ['node', 'dist/migrate.mjs']
     restart: 'no'
@@ -61,7 +61,7 @@ services:
       postgres: { condition: service_healthy }
 
   web:
-    image: ${WEB_IMAGE:-ghcr.io/sermon-archive/sermon-archive-web:latest}
+    image: ${WEB_IMAGE:-ghcr.io/danandclaude/sermon-archive-web:latest}
     build: { context: .., dockerfile: Dockerfile }
     restart: unless-stopped
     environment: *app-env
@@ -86,7 +86,7 @@ services:
   # Cleans up and transcribes tapes and files approved sermons. It can be turned off here and run on
   # another computer instead (docker compose up -d --scale worker=0); see INSTALL.md.
   worker:
-    image: ${WORKER_IMAGE:-ghcr.io/sermon-archive/sermon-archive-worker:latest}
+    image: ${WORKER_IMAGE:-ghcr.io/danandclaude/sermon-archive-worker:latest}
     build: { context: .., dockerfile: worker/Dockerfile }
     restart: unless-stopped
     environment: *worker-env
@@ -97,7 +97,7 @@ services:
 
   # Copies the database to the storage bucket every night.
   backup:
-    image: ${WORKER_IMAGE:-ghcr.io/sermon-archive/sermon-archive-worker:latest}
+    image: ${WORKER_IMAGE:-ghcr.io/danandclaude/sermon-archive-worker:latest}
     build: { context: .., dockerfile: worker/Dockerfile }
     restart: unless-stopped
     command: ['python', '-m', 'sermon_worker.backup', 'daemon']
