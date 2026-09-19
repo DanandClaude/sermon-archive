@@ -10,7 +10,7 @@ const client = (endpoint?: string) =>
     region: 'us-east-1',
     endpoint,
     forcePathStyle: Boolean(endpoint),
-    credentials: { accessKeyId: 'AKIATESTTESTTESTTEST', secretAccessKey: 'test-secret-key' },
+    credentials: { accessKeyId: 'test-access-key-id', secretAccessKey: 'test-secret-key' },
   });
 
 const KEY = 'originals/abc/original.wav';

@@ -21,7 +21,8 @@
     "worker:once": "worker/run.sh -m sermon_worker --once",
     "worker:test": "cd worker && .venv/bin/python -m pytest",
     "worker:lint": "cd worker && .venv/bin/ruff check src tests && .venv/bin/ruff format --check src tests",
-    "worker:install-mlx": "worker/.venv/bin/pip install -e \"worker[dev,mlx]\""
+    "worker:install-mlx": "worker/.venv/bin/pip install -e \"worker[dev,mlx]\"",
+    "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist --out-extension:.js=.mjs --banner:js=\"import{createRequire}from'module';import{fileURLToPath}from'url';import{dirname}from'path';const require=createRequire(import.meta.url);const __filename=fileURLToPath(import.meta.url);const __dirname=dirname(__filename);\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1135.0",
@@ -47,6 +48,7 @@
     "@types/smtp-server": "^3.5.13",
     "@vitejs/plugin-react": "^6.1.1",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "eslint-config-prettier": "^10.1.8",
@@ -60,5 +62,6 @@
   },
   "engines": {
     "node": ">=24"
-  }
+  },
+  "license": "MIT"
 }
