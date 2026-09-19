@@ -1,5 +1,14 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { audioAssets, jobs, sermons, transcripts, uploads } from '@/db/schema';
+import {
+  audioAssets,
+  jobs,
+  scriptureRefs,
+  sermons,
+  sermonTags,
+  tags,
+  transcripts,
+  uploads,
+} from '@/db/schema';
 import { formatClock } from '@/lib/format';
 import type { SermonStatus } from '@/lib/sermon-status';
 import { insertUser, openTestDb, resetTables } from '../../../tests/support/db';
@@ -166,6 +175,130 @@ describe('getSermonDetail', () => {
     });
     expect((await getSermonDetail(db, admin, failed.id))?.canRetry).toBe(true);
     expect((await getSermonDetail(db, owner, fine.id))?.canRetry).toBe(false);
+  });
+});
+
+describe('getSermonDetail review data', () => {
+  async function reviewable() {
+    const owner = await insertUser(db, 'contributor');
+    const s = await sermonWith(owner, 'needs_review', {
+      title: 'Submitting to Leaders',
+      summaryText: 'A short summary.',
+      summarySource: 'auto',
+      recordedOn: '1988-03-13',
+      primaryPassage: { book: 'Hebrews', chapter: 13, verseStart: 17, verseEnd: null },
+    });
+    const base = { sermonId: s.id, book: 'Hebrews', chapter: 13, source: 'auto' as const };
+    await db.insert(scriptureRefs).values([
+      { ...base, verseStart: 17, spokenAtSec: 900, isMainText: true },
+      { ...base, book: 'Romans', chapter: 13, verseStart: 1, verseEnd: 2, spokenAtSec: 300 },
+      {
+        ...base,
+        book: 'Acts',
+        chapter: 9,
+        verseStart: 26,
+        spokenAtSec: 100,
+        deletedAt: new Date(),
+      },
+      { ...base, verseStart: 7, spokenAtSec: 500, source: 'manual', editedAt: new Date() },
+    ]);
+    await db.insert(tags).values([
+      { kind: 'book', name: 'Hebrews' },
+      { kind: 'topic', name: 'Trust' },
+    ]);
+    const all = await db.select().from(tags);
+    await db.insert(sermonTags).values(all.map((t) => ({ sermonId: s.id, tagId: t.id })));
+    return { owner, s };
+  }
+
+  it('lists the passages in the order spoken, leaving out deleted ones', async () => {
+    const { owner, s } = await reviewable();
+    const detail = await getSermonDetail(db, owner, s.id);
+    expect(detail!.scripture.map((r) => [r.ref.book, r.spokenAtSec])).toEqual([
+      ['Romans', 300],
+      ['Hebrews', 500],
+      ['Hebrews', 900],
+    ]);
+    expect(detail!.scripture[1]).toMatchObject({ source: 'manual', edited: true });
+    expect(detail!.scripture[2]).toMatchObject({ isMainText: true, source: 'auto', edited: false });
+  });
+
+  it('carries the summary, main passage, tags and topic suggestions', async () => {
+    const { owner, s } = await reviewable();
+    const detail = await getSermonDetail(db, owner, s.id);
+    expect(detail).toMatchObject({
+      summary: { text: 'A short summary.', source: 'auto' },
+      primaryPassage: { book: 'Hebrews', chapter: 13, verseStart: 17 },
+      filenameStem: null,
+      tags: [
+        { kind: 'book', name: 'Hebrews' },
+        { kind: 'topic', name: 'Trust' },
+      ],
+      topicSuggestions: ['Trust'],
+    });
+  });
+
+  it('lets the uploader edit, approve and regenerate once the sermon is waiting for review', async () => {
+    const { owner, s } = await reviewable();
+    expect(await getSermonDetail(db, owner, s.id)).toMatchObject({
+      canEdit: true,
+      canApprove: true,
+      canRegenerate: true,
+      approvalProblems: {},
+    });
+  });
+
+  it('says what still blocks approval', async () => {
+    const owner = await insertUser(db, 'contributor');
+    const s = await sermonWith(owner, 'needs_review');
+    const detail = await getSermonDetail(db, owner, s.id);
+    expect(Object.keys(detail!.approvalProblems).sort()).toEqual([
+      'primaryPassage',
+      'recordedOn',
+      'title',
+    ]);
+  });
+
+  it('gives no editing while the sermon is still being processed', async () => {
+    const owner = await insertUser(db, 'contributor');
+    for (const status of ['uploaded', 'cleaning', 'transcribing', 'analyzing', 'failed'] as const) {
+      const s = await sermonWith(owner, status);
+      expect(await getSermonDetail(db, owner, s.id), status).toMatchObject({
+        canEdit: false,
+        canApprove: false,
+        canRegenerate: false,
+        topicSuggestions: [],
+      });
+    }
+  });
+
+  it('is read-only for a viewer, who still sees the passages of an approved sermon', async () => {
+    const owner = await insertUser(db, 'contributor');
+    const viewer = await insertUser(db, 'viewer');
+    const s = await sermonWith(owner, 'approved', { filenameStem: 'x_y_z' });
+    await db.insert(scriptureRefs).values({
+      sermonId: s.id,
+      book: 'John',
+      chapter: 3,
+      verseStart: 16,
+      spokenAtSec: 60,
+      source: 'auto',
+    });
+    const detail = await getSermonDetail(db, viewer, s.id);
+    expect(detail).toMatchObject({ canEdit: false, canApprove: false, filenameStem: 'x_y_z' });
+    expect(detail!.scripture).toHaveLength(1);
+  });
+
+  it('lets an admin edit after approval but not approve again; the uploader cannot edit', async () => {
+    const owner = await insertUser(db, 'contributor');
+    const admin = await insertUser(db, 'admin');
+    const s = await sermonWith(owner, 'approved');
+    expect(await getSermonDetail(db, admin, s.id)).toMatchObject({
+      canEdit: true,
+      canApprove: false,
+      canRegenerate: false,
+    });
+    expect(await getSermonDetail(db, owner, s.id)).toMatchObject({ canEdit: false });
   });
 });
 

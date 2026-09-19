@@ -1,8 +1,29 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '@/db/client';
-import { audioAssets, jobs, sermons, transcripts, uploads, users, type Job } from '@/db/schema';
-import { assertCan, canRetrySermon, canViewSermon, type Actor } from '@/lib/permissions';
-import type { SermonStatus } from '@/lib/sermon-status';
+import {
+  audioAssets,
+  jobs,
+  scriptureRefs,
+  sermons,
+  sermonTags,
+  tags,
+  transcripts,
+  uploads,
+  users,
+  type Job,
+} from '@/db/schema';
+import {
+  assertCan,
+  canApproveSermon,
+  canEditSermon,
+  canRetrySermon,
+  canViewSermon,
+  type Actor,
+} from '@/lib/permissions';
+import { approvalProblems, asReference } from '@/lib/review/service';
+import type { Reference } from '@/lib/scripture/canon';
+import { isApprovedOrLater, type SermonStatus } from '@/lib/sermon-status';
 import type { Segment } from '@/lib/transcripts/render';
 
 export type AssetSummary = { storageKey: string; peaksKey: string | null; bytes: number };
@@ -16,6 +37,18 @@ export type TranscriptDetail = {
   /** [segmentIndex, wordIndex] pairs the transcriber was unsure of. */
   lowConfidence: [number, number][];
   createdAt: Date;
+};
+
+export type ScriptureItem = {
+  id: string;
+  ref: Reference;
+  spokenAtSec: number;
+  contextNote: string | null;
+  /** 'auto' was found by the system; 'manual' was added by a person. */
+  source: 'auto' | 'manual';
+  /** A person changed what the system found. */
+  edited: boolean;
+  isMainText: boolean;
 };
 
 export type SermonDetail = {
@@ -37,6 +70,24 @@ export type SermonDetail = {
   /** The newest cleaned copy. */
   cleaned: AssetSummary | null;
   transcript: TranscriptDetail | null;
+  summary: { text: string; source: 'auto' | 'edited' } | null;
+  primaryPassage: Reference | null;
+  /** Set when the sermon is approved. */
+  filenameStem: string | null;
+  approvedAt: Date | null;
+  approvedByName: string | null;
+  /** Testament, genre, book and topic tags. */
+  tags: { kind: string; name: string }[];
+  /** Passages the pastor named, in the order they were spoken. Deleted ones are left out. */
+  scripture: ScriptureItem[];
+  /** Topics already used elsewhere, offered as suggestions. Only filled in for people who can edit. */
+  topicSuggestions: string[];
+  /** Details, summary and passages can be changed. */
+  canEdit: boolean;
+  canApprove: boolean;
+  canRegenerate: boolean;
+  /** What still blocks approval, keyed by field. */
+  approvalProblems: Record<string, string>;
   canRetry: boolean;
   /** Raw job history, for admins only: it can contain technical error text. */
   jobs: Job[] | null;
@@ -56,14 +107,17 @@ export async function getSermonDetail(
   sermonId: string,
 ): Promise<SermonDetail | null> {
   assertCan(actor.role, 'library.browse');
+  const approver = alias(users, 'approver');
   const [row] = await db
     .select({
       sermon: sermons,
       contributorName: users.name,
+      approvedByName: approver.name,
       filename: uploads.filename,
     })
     .from(sermons)
     .innerJoin(users, eq(users.id, sermons.contributorId))
+    .leftJoin(approver, eq(approver.id, sermons.approvedBy))
     .leftJoin(uploads, eq(uploads.sermonId, sermons.id))
     .where(eq(sermons.id, sermonId));
   if (!row) return null;
@@ -86,6 +140,30 @@ export async function getSermonDetail(
     .where(eq(transcripts.sermonId, sermonId))
     .orderBy(desc(transcripts.version))
     .limit(1);
+  const refs = await db
+    .select()
+    .from(scriptureRefs)
+    .where(and(eq(scriptureRefs.sermonId, sermonId), isNull(scriptureRefs.deletedAt)))
+    .orderBy(asc(scriptureRefs.spokenAtSec), asc(scriptureRefs.createdAt));
+  const tagRows = await db
+    .select({ kind: tags.kind, name: tags.name })
+    .from(sermonTags)
+    .innerJoin(tags, eq(tags.id, sermonTags.tagId))
+    .where(eq(sermonTags.sermonId, sermonId))
+    .orderBy(asc(tags.kind), asc(tags.name));
+  const editable =
+    canEditSermon(actor, facts) &&
+    (sermon.status === 'needs_review' || isApprovedOrLater(sermon.status));
+  const topicSuggestions = editable
+    ? (
+        await db
+          .selectDistinct({ name: tags.name })
+          .from(tags)
+          .where(eq(tags.kind, 'topic'))
+          .orderBy(asc(tags.name))
+          .limit(200)
+      ).map((t) => t.name)
+    : [];
   const jobRows =
     actor.role === 'admin'
       ? await db
@@ -123,6 +201,28 @@ export async function getSermonDetail(
           createdAt: transcript.createdAt,
         }
       : null,
+    summary: sermon.summaryText
+      ? { text: sermon.summaryText, source: sermon.summarySource === 'edited' ? 'edited' : 'auto' }
+      : null,
+    primaryPassage: asReference(sermon.primaryPassage),
+    filenameStem: sermon.filenameStem,
+    approvedAt: sermon.approvedAt,
+    approvedByName: row.approvedByName,
+    tags: tagRows,
+    scripture: refs.map((r) => ({
+      id: r.id,
+      ref: { book: r.book, chapter: r.chapter, verseStart: r.verseStart, verseEnd: r.verseEnd },
+      spokenAtSec: r.spokenAtSec,
+      contextNote: r.contextNote,
+      source: r.source === 'manual' ? 'manual' : 'auto',
+      edited: r.editedAt !== null,
+      isMainText: r.isMainText,
+    })),
+    topicSuggestions,
+    canEdit: editable,
+    canApprove: canApproveSermon(actor, facts),
+    canRegenerate: editable && sermon.status === 'needs_review',
+    approvalProblems: approvalProblems(sermon),
     canRetry: canRetrySermon(actor, facts),
     jobs: jobRows,
   };
