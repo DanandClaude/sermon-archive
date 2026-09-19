@@ -103,3 +103,19 @@ def test_records_what_it_did_and_covers_every_sermon(conn):
         "SELECT actor_id, diff FROM audit_log WHERE action = 'scripture.dedupe'"
     ).fetchall()
     assert [(e["actor_id"], e["diff"]) for e in entries] == [(None, {"hidden": 1})] * 2
+
+
+def test_folds_a_whole_chapter_into_verses_of_it_listed_earlier(conn):
+    s = make_sermon(conn, "needs_review")
+    add_ref(conn, s, "Hebrews", 5, 11, 12, 117)
+    add_ref(conn, s, "Hebrews", 5, None, None, 2075)
+    add_ref(conn, s, "Hebrews", 12, None, None, 2227)
+    add_ref(conn, s, "James", 4, None, None, 100)
+    add_ref(conn, s, "James", 4, 4, None, 200)  # the whole chapter came first: both stay
+    dedupe_refs(conn, s)
+    assert live(conn, s) == [
+        ("James", 4, None, None, 100),
+        ("Hebrews", 5, 11, 12, 117),
+        ("James", 4, 4, None, 200),
+        ("Hebrews", 12, None, None, 2227),
+    ]

@@ -202,17 +202,20 @@ def _key(ref: Reference) -> tuple:
 
 
 def _covers(outer: Reference, inner: Reference) -> bool:
-    if (outer.book, outer.chapter) != (inner.book, inner.chapter):
+    """The outer passage already includes the inner one: verses inside a listed range, or a whole
+    chapter named after verses of it were listed."""
+    if (outer.book, outer.chapter) != (inner.book, inner.chapter) or outer.verse_start is None:
         return False
-    if outer.verse_start is None or inner.verse_start is None:
-        return False
+    if inner.verse_start is None:
+        return True  # "Hebrews 5" again, after Hebrews 5:11–12
     outer_end = outer.verse_end or outer.verse_start
     inner_end = inner.verse_end or inner.verse_start
     return outer.verse_start <= inner.verse_start and inner_end <= outer_end
 
 
 def covers_or_equals(earlier: Reference, later: Reference) -> bool:
-    """The later mention adds nothing: it is the same passage, or verses inside a range already listed."""
+    """The later mention adds nothing: the same passage, verses inside a range already listed, or the
+    whole chapter named after some of its verses were listed."""
     return _key(earlier) == _key(later) or _covers(earlier, later)
 
 
@@ -220,7 +223,8 @@ def merge_passages(passages: list[Passage]) -> list[Passage]:
     """One entry per passage, at the earliest time it was named, in the order spoken.
 
     A passage named again later, however much later, is the same passage. So are verses inside a
-    range that was already listed (Hebrews 6:6 after Hebrews 6:4–6).
+    range that was already listed (Hebrews 6:6 after Hebrews 6:4–6), and a whole chapter named
+    after verses of it were listed (Hebrews 5 after Hebrews 5:11–12).
     """
     out: list[Passage] = []
     for p in sorted(passages, key=lambda p: p.spoken_at):

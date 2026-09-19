@@ -116,6 +116,29 @@ class TestMerge:
         merged = merge_passages([P("Hebrews", 13, at=100), P("Hebrews", 13, 17, at=130)])
         assert [(format_reference(p.ref), p.spoken_at) for p in merged] == [("Hebrews 13:17", 100)]
 
+    def test_a_whole_chapter_named_after_its_verses_folds_into_the_verse_entry(self):
+        merged = merge_passages(
+            [
+                P("Hebrews", 5, 11, 12, at=117),
+                P("Hebrews", 6, 4, 6, at=142),
+                P("Hebrews", 5, at=2075),
+            ]
+        )
+        assert [(format_reference(p.ref), p.spoken_at, p.mentions) for p in merged] == [
+            ("Hebrews 5:11–12", 117, 2),
+            ("Hebrews 6:4–6", 142, 1),
+        ]
+
+    def test_a_whole_chapter_of_another_chapter_or_book_stays(self):
+        merged = merge_passages(
+            [P("James", 4, 4, at=1254), P("James", 3, at=1269), P("Hebrews", 4, at=1300)]
+        )
+        assert len(merged) == 3
+
+    def test_a_whole_chapter_with_no_verses_listed_stays(self):
+        merged = merge_passages([P("Hebrews", 12, at=2227)])
+        assert [format_reference(p.ref) for p in merged] == ["Hebrews 12"]
+
     def test_a_whole_chapter_with_no_verses_soon_after_stays(self):
         merged = merge_passages([P("Psalms", 23, at=100), P("Psalms", 23, 4, at=400)])
         assert len(merged) == 2
