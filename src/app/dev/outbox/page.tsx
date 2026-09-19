@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getMailer } from '@/adapters';
-import { FakeMailer } from '@/adapters/mail/fake';
+import type { FakeMailer } from '@/adapters/mail/fake';
 
 export const metadata = { title: 'Dev outbox' };
 
@@ -8,7 +8,10 @@ export const metadata = { title: 'Dev outbox' };
 export default async function DevOutbox() {
   if (process.env.NODE_ENV !== 'development') notFound();
   const mailer = getMailer();
-  const messages = mailer instanceof FakeMailer ? [...mailer.outbox].reverse() : [];
+  // Not `instanceof`: in development the mailer can be created by another copy of the module
+  // (the sign-in action), and a class check would wrongly say there is nothing to show.
+  const outbox = 'outbox' in mailer ? (mailer as FakeMailer).outbox : [];
+  const messages = [...outbox].reverse();
   return (
     <main className="mx-auto max-w-[720px] px-4 py-10">
       <h1 className="font-heading text-[28px] font-semibold">Dev outbox</h1>
