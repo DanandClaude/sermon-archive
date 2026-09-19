@@ -393,6 +393,52 @@ describe('scripture references', () => {
     expect(await db.select().from(scriptureRefs)).toHaveLength(0);
   });
 
+  it('refuses a passage that is already in the list, and says where', async () => {
+    const owner = await insertUser(db, 'contributor');
+    const s = await readySermon(owner);
+    await addScriptureRef(db, owner, s.id, ref);
+    const error = await rejects(
+      addScriptureRef(db, owner, s.id, { ...ref, spokenAtSec: 2000 }),
+      'invalid',
+      'book',
+    );
+    expect(error.message).toBe('Hebrews 13:17 is already in the list, at 20:58.');
+    expect(await db.select().from(scriptureRefs)).toHaveLength(1);
+  });
+
+  it('treats a different verse, range or whole chapter as a different passage', async () => {
+    const owner = await insertUser(db, 'contributor');
+    const s = await readySermon(owner);
+    await addScriptureRef(db, owner, s.id, ref);
+    await addScriptureRef(db, owner, s.id, { ...ref, verseStart: 7 });
+    await addScriptureRef(db, owner, s.id, { ...ref, verseStart: 17, verseEnd: 19 });
+    await addScriptureRef(db, owner, s.id, { ...ref, verseStart: null });
+    expect(await db.select().from(scriptureRefs)).toHaveLength(4);
+  });
+
+  it('lets a deleted passage be added again', async () => {
+    const owner = await insertUser(db, 'contributor');
+    const s = await readySermon(owner);
+    const first = await addScriptureRef(db, owner, s.id, ref);
+    await deleteScriptureRef(db, owner, s.id, first.id);
+    await expect(addScriptureRef(db, owner, s.id, ref)).resolves.toMatchObject({ book: 'Hebrews' });
+  });
+
+  it('refuses to edit a passage into one already listed, but lets it keep itself', async () => {
+    const owner = await insertUser(db, 'contributor');
+    const s = await readySermon(owner);
+    await addScriptureRef(db, owner, s.id, ref);
+    const other = await addScriptureRef(db, owner, s.id, { ...ref, verseStart: 7 });
+    await rejects(editScriptureRef(db, owner, s.id, other.id, ref), 'invalid', 'book');
+    await expect(
+      editScriptureRef(db, owner, s.id, other.id, {
+        ...ref,
+        verseStart: 7,
+        contextNote: 'new note',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('marking a new passage as the main text makes it the sermon’s main passage and tags', async () => {
     const owner = await insertUser(db, 'contributor');
     const s = await readySermon(owner, { primaryPassage: null });

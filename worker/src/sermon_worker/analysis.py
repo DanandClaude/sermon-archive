@@ -23,9 +23,6 @@ from .scripture import (
     try_validate,
 )
 
-# One entry per passage per cluster of mentions: a passage said again within this long of its last
-# mention is the same mention cluster, and keeps its earliest time.
-CLUSTER_SEC = 120.0
 # "Turn to Hebrews 13 ... verse 17" is one passage, announced first and then read.
 PREAMBLE_SEC = 45.0
 
@@ -214,33 +211,26 @@ def _covers(outer: Reference, inner: Reference) -> bool:
     return outer.verse_start <= inner.verse_start and inner_end <= outer_end
 
 
+def covers_or_equals(earlier: Reference, later: Reference) -> bool:
+    """The later mention adds nothing: it is the same passage, or verses inside a range already listed."""
+    return _key(earlier) == _key(later) or _covers(earlier, later)
+
+
 def merge_passages(passages: list[Passage]) -> list[Passage]:
-    """One entry per passage per cluster of mentions, at the earliest time, in the order spoken."""
-    ordered = sorted(passages, key=lambda p: p.spoken_at)
+    """One entry per passage, at the earliest time it was named, in the order spoken.
+
+    A passage named again later, however much later, is the same passage. So are verses inside a
+    range that was already listed (Hebrews 6:6 after Hebrews 6:4–6).
+    """
     out: list[Passage] = []
-    last_mention: dict[int, float] = {}
-
-    def absorb(into: Passage, other: Passage) -> None:
-        into.mentions += other.mentions
-        into.confidence = max(into.confidence, other.confidence)
-        into.note = into.note or other.note
-        last_mention[id(into)] = other.spoken_at
-
-    for p in ordered:
-        home = next(
-            (
-                q
-                for q in reversed(out)
-                if p.spoken_at - last_mention[id(q)] <= CLUSTER_SEC
-                and (_key(q.ref) == _key(p.ref) or _covers(q.ref, p.ref))
-            ),
-            None,
-        )
-        if home is not None:
-            absorb(home, p)
+    for p in sorted(passages, key=lambda p: p.spoken_at):
+        home = next((q for q in out if covers_or_equals(q.ref, p.ref)), None)
+        if home is None:
+            out.append(p)
             continue
-        out.append(p)
-        last_mention[id(p)] = p.spoken_at
+        home.mentions += p.mentions
+        home.confidence = max(home.confidence, p.confidence)
+        home.note = home.note or p.note
 
     # A whole chapter announced just before its verses are read is one passage: the verses, from
     # the moment the chapter was announced.

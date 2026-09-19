@@ -75,7 +75,7 @@ def P(book, chapter, vs=None, ve=None, at=0.0, conf=0.9, note=None):
 
 
 class TestMerge:
-    def test_repeat_mentions_in_a_cluster_become_one_at_the_earliest_time(self):
+    def test_repeat_mentions_become_one_at_the_earliest_time(self):
         merged = merge_passages(
             [
                 P("Hebrews", 13, 17, at=1200),
@@ -85,9 +85,19 @@ class TestMerge:
         )
         assert [(p.spoken_at, p.mentions) for p in merged] == [(1200, 3)]
 
-    def test_a_mention_after_a_long_gap_is_a_new_entry(self):
-        merged = merge_passages([P("Hebrews", 13, 17, at=100), P("Hebrews", 13, 17, at=900)])
-        assert [p.spoken_at for p in merged] == [100, 900]
+    def test_a_passage_named_again_much_later_is_still_the_same_passage(self):
+        merged = merge_passages(
+            [P("Hebrews", 6, 6, at=682), P("Hebrews", 6, 6, at=827), P("Hebrews", 6, 6, at=2008)]
+        )
+        assert [(p.spoken_at, p.mentions) for p in merged] == [(682, 3)]
+
+    def test_verses_inside_a_range_listed_earlier_join_it_even_much_later(self):
+        merged = merge_passages([P("Hebrews", 6, 4, 6, at=142), P("Hebrews", 6, 6, at=2008)])
+        assert [format_reference(p.ref) for p in merged] == ["Hebrews 6:4–6"]
+
+    def test_a_range_named_after_one_of_its_verses_stays_as_its_own_entry(self):
+        merged = merge_passages([P("Hebrews", 6, 6, at=100), P("Hebrews", 6, 4, 6, at=900)])
+        assert [format_reference(p.ref) for p in merged] == ["Hebrews 6:6", "Hebrews 6:4–6"]
 
     def test_different_passages_stay_separate_and_come_out_in_time_order(self):
         merged = merge_passages([P("Romans", 8, 28, at=500), P("Hebrews", 13, 17, at=100)])
@@ -98,7 +108,7 @@ class TestMerge:
         assert [format_reference(p.ref) for p in merged] == ["Romans 8:28–39"]
         assert merged[0].mentions == 2
 
-    def test_a_verse_outside_the_range_is_not(self):
+    def test_a_verse_outside_the_range_stays_separate(self):
         merged = merge_passages([P("Romans", 8, 28, 30, at=100), P("Romans", 8, 35, at=160)])
         assert len(merged) == 2
 

@@ -1,7 +1,8 @@
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Db } from '@/db/client';
 import { auditLog, scriptureRefs, sermonTags, sermons, tags, type ScriptureRef } from '@/db/schema';
+import { formatClock } from '@/lib/format';
 import { enqueueJob } from '@/lib/jobs';
 import { filenameStem, uniqueStem } from '@/lib/naming';
 import {
@@ -431,6 +432,30 @@ async function applyMainChoice(
   await setTags(tx, sermon.id, ['testament', 'genre', 'book'], passageTags(primary));
 }
 
+/** A passage appears once. Refuses one that is already in the list, and says where. */
+async function assertNotListed(tx: Tx, sermonId: string, ref: Reference, exceptId?: string) {
+  const [found] = await tx
+    .select({ at: scriptureRefs.spokenAtSec })
+    .from(scriptureRefs)
+    .where(
+      and(
+        eq(scriptureRefs.sermonId, sermonId),
+        isNull(scriptureRefs.deletedAt),
+        exceptId ? ne(scriptureRefs.id, exceptId) : undefined,
+        eq(scriptureRefs.book, ref.book),
+        eq(scriptureRefs.chapter, ref.chapter),
+        sql`${scriptureRefs.verseStart} is not distinct from ${ref.verseStart}`,
+        sql`${scriptureRefs.verseEnd} is not distinct from ${ref.verseEnd}`,
+      ),
+    )
+    .orderBy(asc(scriptureRefs.spokenAtSec))
+    .limit(1);
+  if (found) {
+    const message = `${formatReference(ref)} is already in the list, at ${formatClock(found.at)}.`;
+    throw new ReviewError('invalid', message, { book: message });
+  }
+}
+
 /** Adds a passage the system missed. */
 export async function addScriptureRef(
   db: Db,
@@ -441,6 +466,7 @@ export async function addScriptureRef(
   return db.transaction(async (tx) => {
     const sermon = await editableSermon(tx, actor, sermonId);
     const { ref, spokenAtSec, contextNote, isMainText } = parseRef(input, sermon.durationSec);
+    await assertNotListed(tx, sermonId, ref);
     const [row] = await tx
       .insert(scriptureRefs)
       .values({
@@ -491,6 +517,7 @@ export async function editScriptureRef(
     const sermon = await editableSermon(tx, actor, sermonId);
     const before = await liveRef(tx, sermonId, refId);
     const { ref, spokenAtSec, contextNote, isMainText } = parseRef(input, sermon.durationSec);
+    await assertNotListed(tx, sermonId, ref, refId);
     const wasMain = same(refOf(before), asReference(sermon.primaryPassage));
     await tx
       .update(scriptureRefs)
