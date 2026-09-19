@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatClock } from '@/lib/format';
 import type { Peaks } from '@/lib/sermons/peaks';
 import { usePlayback, useTime } from './ReviewContext';
@@ -32,9 +32,27 @@ export function SermonPlayer({
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [length, setLength] = useState(durationSec ?? 0);
+  // Recordings this browser could not decode. Old tape files are sometimes MPEG Layer II saved
+  // as .mp3, which Chrome-based browsers can't play (the cleaned copy is always a true MP3).
+  const [unplayable, setUnplayable] = useState<Source[]>([]);
+  const latestTime = useRef(0);
+  useEffect(() => {
+    latestTime.current = time;
+  });
+
+  function failed(bad: Source) {
+    const other: Source = bad === 'cleaned' ? 'original' : 'cleaned';
+    const canFallBack = !(other === 'cleaned' && !cleanedUrl) && !unplayable.includes(other);
+    setUnplayable((list) => (list.includes(bad) ? list : [...list, bad]));
+    setPlaying(false);
+    if (!canFallBack) return;
+    // Carry on from where the listener was, in the version that does play.
+    resume.current = { time: latestTime.current, play: false };
+    setSource(other);
+  }
 
   function choose(next: Source) {
-    if (next === source) return;
+    if (next === source || unplayable.includes(next)) return;
     const el = audioRef.current;
     // Remember the position so the other version carries on from the same spot.
     resume.current = el ? { time: el.currentTime, play: !el.paused } : null;
@@ -69,7 +87,7 @@ export function SermonPlayer({
           className="inline-flex gap-1 rounded-xl bg-[#eae4d8] p-1"
         >
           {(['original', 'cleaned'] as const).map((s) => {
-            const disabled = s === 'cleaned' && !cleanedUrl;
+            const disabled = (s === 'cleaned' && !cleanedUrl) || unplayable.includes(s);
             return (
               <button
                 key={s}
@@ -93,6 +111,18 @@ export function SermonPlayer({
           </span>
         ) : null}
       </div>
+      {unplayable.length > 0 ? (
+        <p
+          role="alert"
+          className="mb-4 mt-0 rounded-xl bg-amber-tint px-3.5 py-3 text-[13.5px] leading-[1.5] text-amber-text"
+        >
+          {unplayable.length === 2
+            ? 'This browser can’t play either version of this recording. Try another browser. The files themselves are stored safely and unchanged.'
+            : unplayable[0] === 'original'
+              ? 'This browser can’t play the original tape file (it is an older kind of MP3, which many browsers don’t support). The cleaned version is playing instead. The original is stored unchanged.'
+              : 'This browser can’t play the cleaned version. The original tape is playing instead.'}
+        </p>
+      ) : null}
 
       <div className="flex flex-col gap-3">
         <div>
@@ -126,6 +156,7 @@ export function SermonPlayer({
         key={src}
         src={src}
         preload="metadata"
+        onError={() => failed(source)}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
