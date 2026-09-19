@@ -34,4 +34,5 @@ Set `NODE_ENV=production`, `ADAPTER_MODE=real` and the variables in `.env.exampl
 - Email addresses and names are used to send sign-in links through your SMTP provider. Sermon content is never emailed.
 - Transcription runs on your own machine. No audio is sent to a transcription service.
 - **Anthropic API (optional).** When `ANALYZER=anthropic`, the worker sends the transcript text (never audio) to Claude to write a title, summary and topic tags and to judge which passages were named. With the default `ANALYZER=fake`, nothing leaves your machine and the title and summary are placeholders.
-- Not sent anywhere yet, and listed here when added: Google Drive or another storage provider (Phase 4), and YouTube or a podcast host (Phase 5).
+- **Google Drive (production only).** Approved sermons are filed to two Drive accounts you connect: the shared archive drive (cleaned audio, transcript, subtitles, details) and an admin-only backup (also the original audio and word-timed transcript). The app asks Google only for access to the folders it creates itself, so it can't see anything else in those accounts. In development, "files" go to folders under `.data/targets/` and nothing leaves your machine.
+- Not sent anywhere yet, and listed here when added: YouTube or a podcast host (Phase 5).
