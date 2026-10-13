@@ -23,6 +23,7 @@ describe('navFor', () => {
       'Needs review',
       'Connections',
       'Publishing',
+      'System health',
       'Team & access',
       'Settings',
     ]);
