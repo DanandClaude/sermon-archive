@@ -56,6 +56,8 @@ export type LibraryRow = {
   side: string | null;
   batchLabel: string | null;
   contributorName: string;
+  summary: string | null;
+  durationSec: number | null;
 };
 
 export type LibraryPage = {
@@ -101,6 +103,8 @@ export async function listLibrary(
       side: sermons.side,
       batchLabel: sermons.batchLabel,
       contributorName: users.name,
+      summary: sermons.summaryText,
+      durationSec: sermons.durationSec,
     })
     .from(sermons)
     .innerJoin(users, eq(users.id, sermons.contributorId))

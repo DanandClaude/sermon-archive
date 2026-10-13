@@ -6,6 +6,7 @@ import { getDb } from '@/db/client';
 import { requireCapability } from '@/lib/auth/guard';
 import { formatRecordedOn } from '@/lib/format';
 import { can } from '@/lib/permissions';
+import { LibraryGrid } from './LibraryGrid';
 import { LIBRARY_TABS, listLibrary, PAGE_SIZE, type LibraryTab } from '@/lib/sermons/library';
 
 export const metadata = { title: 'Library' };
@@ -17,10 +18,13 @@ const TAB_LABEL: Record<LibraryTab, string> = {
   approved: 'Approved',
 };
 
-function href(params: { q?: string; tab?: LibraryTab; page?: number }) {
+type View = 'list' | 'grid';
+
+function href(params: { q?: string; tab?: LibraryTab; page?: number; view?: View }) {
   const search = new URLSearchParams();
   if (params.q) search.set('q', params.q);
   if (params.tab && params.tab !== 'all') search.set('tab', params.tab);
+  if (params.view === 'grid') search.set('view', 'grid');
   if (params.page && params.page > 1) search.set('page', String(params.page));
   const text = search.toString();
   return text ? `/library?${text}` : '/library';
@@ -29,7 +33,7 @@ function href(params: { q?: string; tab?: LibraryTab; page?: number }) {
 export default async function LibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tab?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; tab?: string; page?: string; view?: string }>;
 }) {
   const user = await requireCapability('library.browse');
   const sp = await searchParams;
@@ -37,6 +41,7 @@ export default async function LibraryPage({
   const tab = (LIBRARY_TABS as readonly string[]).includes(sp.tab ?? '')
     ? (sp.tab as LibraryTab)
     : 'all';
+  const view: View = sp.view === 'grid' ? 'grid' : 'list';
   const result = await listLibrary(getDb(), user, { q, tab, page: Number(sp.page) });
   const canUpload = can(user.role, 'sermon.upload');
   // Viewers only ever see approved sermons, so status tabs would all read zero.
@@ -65,6 +70,7 @@ export default async function LibraryPage({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <form role="search" action="/library" className="flex flex-wrap items-center gap-2">
           {tab !== 'all' ? <input type="hidden" name="tab" value={tab} /> : null}
+          {view === 'grid' ? <input type="hidden" name="view" value="grid" /> : null}
           <label htmlFor="library-search" className="sr-only">
             Search the library
           </label>
@@ -84,7 +90,7 @@ export default async function LibraryPage({
           </button>
           {q ? (
             <Link
-              href={href({ tab })}
+              href={href({ tab, view })}
               className="inline-flex h-11 items-center px-2 text-[14px] font-semibold text-spruce"
             >
               Clear
@@ -97,7 +103,7 @@ export default async function LibraryPage({
             {LIBRARY_TABS.map((t) => (
               <Link
                 key={t}
-                href={href({ q, tab: t })}
+                href={href({ q, tab: t, view })}
                 aria-current={t === tab ? 'page' : undefined}
                 className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-[14px] font-semibold ${
                   t === tab ? 'bg-ink text-white' : 'border border-line-strong bg-surface text-ink'
@@ -111,6 +117,21 @@ export default async function LibraryPage({
             ))}
           </nav>
         ) : null}
+
+        <nav aria-label="Layout" className="inline-flex gap-1 rounded-xl bg-chip p-1">
+          {(['list', 'grid'] as const).map((v) => (
+            <Link
+              key={v}
+              href={href({ q, tab, view: v, page: result.page })}
+              aria-current={v === view ? 'page' : undefined}
+              className={`inline-flex h-11 items-center rounded-[9px] px-4 text-[13.5px] font-semibold ${
+                v === view ? 'bg-surface text-ink' : 'text-muted'
+              }`}
+            >
+              {v === 'list' ? 'List' : 'Grid'}
+            </Link>
+          ))}
+        </nav>
       </div>
 
       <section
@@ -132,6 +153,8 @@ export default async function LibraryPage({
                     : 'Approved sermons will appear here.'}
             </p>
           </div>
+        ) : view === 'grid' ? (
+          <LibraryGrid rows={result.rows} />
         ) : (
           <>
             <ul className="m-0 list-none p-0 md:hidden" aria-label="Sermons">
@@ -248,7 +271,7 @@ export default async function LibraryPage({
             <nav aria-label="Pages" className="flex gap-2">
               {result.page > 1 ? (
                 <Link
-                  href={href({ q, tab, page: result.page - 1 })}
+                  href={href({ q, tab, view, page: result.page - 1 })}
                   className="inline-flex h-11 items-center rounded-[10px] border border-line-strong bg-surface px-4 font-semibold text-ink"
                 >
                   Previous
@@ -256,7 +279,7 @@ export default async function LibraryPage({
               ) : null}
               {result.page < result.pageCount ? (
                 <Link
-                  href={href({ q, tab, page: result.page + 1 })}
+                  href={href({ q, tab, view, page: result.page + 1 })}
                   className="inline-flex h-11 items-center rounded-[10px] border border-line-strong bg-surface px-4 font-semibold text-ink"
                 >
                   Next
