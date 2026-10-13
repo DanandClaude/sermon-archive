@@ -1,9 +1,18 @@
 'use client';
 
-import { memo, useCallback, useId, useMemo, useState, useSyncExternalStore } from 'react';
+import {
+  memo,
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from 'react';
 import { formatClock } from '@/lib/format';
 import type { Segment } from '@/lib/transcripts/render';
-import { usePlayback, useTime } from './ReviewContext';
+import { editTranscriptLineAction } from './actions';
+import { usePlayback, useReview, useTime } from './ReviewContext';
 
 /** Index of the segment being spoken at `time`, or -1 before the first one. */
 export function segmentAt(segments: Segment[], time: number): number {
@@ -33,10 +42,17 @@ function readStoredOpen(): boolean {
 export function TranscriptPanel({
   segments,
   lowConfidence,
+  version,
+  canEdit = false,
 }: {
   segments: Segment[];
   lowConfidence: [number, number][];
+  /** The transcript version shown, so an edit can't overwrite someone else's newer one. */
+  version?: number;
+  canEdit?: boolean;
 }) {
+  const [editing, setEditing] = useState<number | null>(null);
+  const stopEditing = useCallback(() => setEditing(null), []);
   const { seek } = usePlayback();
   const time = useTime();
   const active = segmentAt(segments, time);
@@ -113,6 +129,7 @@ export function TranscriptPanel({
       <div id={bodyId} hidden={!open}>
         <p className="mb-0 mt-1.5 text-[13px] text-muted">
           Select a time to jump there. Words the transcriber wasn’t sure of are underlined.
+          {canEdit ? ' To fix a misheard word, choose Edit on its line.' : ''}
         </p>
         {open ? (
           <ol className="m-0 mt-3 list-none p-0">
@@ -123,6 +140,11 @@ export function TranscriptPanel({
                 active={active === i}
                 doubtful={doubtful.get(i) ?? null}
                 onSeek={jump}
+                index={i}
+                editing={editing === i}
+                onEdit={canEdit && version ? setEditing : null}
+                onDone={stopEditing}
+                version={version ?? 0}
               />
             ))}
           </ol>
@@ -141,11 +163,21 @@ const SegmentRow = memo(function SegmentRow({
   active,
   doubtful,
   onSeek,
+  index,
+  editing,
+  onEdit,
+  onDone,
+  version,
 }: {
   segment: Segment;
   active: boolean;
   doubtful: Set<number> | null;
   onSeek: (seconds: number) => void;
+  index: number;
+  editing: boolean;
+  onEdit: ((index: number) => void) | null;
+  onDone: () => void;
+  version: number;
 }) {
   return (
     <li
@@ -160,12 +192,99 @@ const SegmentRow = memo(function SegmentRow({
         {formatClock(segment.start)}
         <span className="sr-only"> Play from here</span>
       </button>
-      <p className="m-0 min-w-0 flex-1 self-center text-[15px] leading-[1.6]">
-        {segment.words.length > 0 && doubtful ? words(segment, doubtful) : segment.text}
-      </p>
+      {editing ? (
+        <LineEditor segment={segment} index={index} version={version} onDone={onDone} />
+      ) : (
+        <>
+          <p className="m-0 min-w-0 flex-1 self-center text-[15px] leading-[1.6]">
+            {segment.words.length > 0 && doubtful ? words(segment, doubtful) : segment.text}
+          </p>
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={() => onEdit(index)}
+              aria-label={`Edit the line at ${formatClock(segment.start)}`}
+              className="h-11 flex-none self-start rounded-lg px-2 text-[13px] font-semibold text-spruce"
+            >
+              Edit
+            </button>
+          ) : null}
+        </>
+      )}
     </li>
   );
 });
+
+/** Corrects one line. Saving makes a new transcript version; the old one is kept. */
+function LineEditor({
+  segment,
+  index,
+  version,
+  onDone,
+}: {
+  segment: Segment;
+  index: number;
+  version: number;
+  onDone: () => void;
+}) {
+  const { sermonId } = useReview();
+  const [text, setText] = useState(segment.text.trim());
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const fieldId = useId();
+  const save = () =>
+    start(async () => {
+      const result = await editTranscriptLineAction(sermonId, { version, index, text });
+      if (result.ok) onDone();
+      else setError(result.error);
+    });
+  return (
+    <form
+      className="flex min-w-0 flex-1 flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <label htmlFor={fieldId} className="sr-only">
+        Line at {formatClock(segment.start)}
+      </label>
+      <textarea
+        id={fieldId}
+        autoFocus
+        rows={3}
+        value={text}
+        aria-invalid={!!error}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onDone();
+        }}
+        className="w-full rounded-xl border border-line-strong bg-surface px-3 py-2 text-[15px] leading-[1.6] text-ink aria-[invalid=true]:border-danger"
+      />
+      {error ? (
+        <p role="alert" className="m-0 text-[13px] font-semibold text-danger">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-11 rounded-xl bg-spruce px-4 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {pending ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="h-11 px-3 text-sm font-semibold text-spruce"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
 
 /** Plain text, with only the words the transcriber doubted marked up, to keep the page light. */
 function words(segment: Segment, doubtful: Set<number>) {
