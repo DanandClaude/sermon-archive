@@ -117,6 +117,12 @@ Approving a sermon queues a `file` job. The worker writes the sermon's files to 
 
 Set `SECRETS_KEY` (and, for real Drive, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) in the worker's environment the same as the app's.
 
+## Publishing
+
+When an admin publishes a sermon to YouTube, the app adds a `publications` row and the worker picks it up between jobs (`publishing.py`). It draws a title card (`cover.py`, Pillow with the bundled OFL fonts in `fonts/`), renders the cleaned audio over it into `renders/` with ffmpeg, uploads the video with a resumable session it saves (a retry resumes it), adds captions from the transcript and records the visibility YouTube applied. Unpublishing makes the video private; nothing is ever deleted. Quota errors wait four hours without counting as a failed attempt, and uploads are capped per day by the admin's setting.
+
+In development the YouTube channel is a folder, `.data/youtube/`. The real channel (`youtube.py`) only runs with `ADAPTER_MODE=real` in production, using the same `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` as Drive. The worker also draws the podcast artwork whenever the feed's name or the church name changes.
+
 ## Storage
 
 Same layout as the app: originals under `originals/`, and everything the worker makes under `cleaned/` and `peaks/`. Keys include the job id, so a retry writes new objects instead of editing old ones. The worker refuses to write under `originals/` at all. In development it reads and writes `.data/uploads`; with `ADAPTER_MODE=real` (production only) it uses the same S3 bucket as the app.
@@ -124,7 +130,7 @@ Same layout as the app: originals under `originals/`, and everything the worker 
 ## Tests
 
 ```sh
-npm run worker:test           # about 380 tests: real ffmpeg, a real Postgres database, scripted and stubbed transcribers and analyzers
+npm run worker:test           # about 470 tests: real ffmpeg, a real Postgres database, scripted and stubbed transcribers and analyzers
 npm run worker:lint
 ```
 

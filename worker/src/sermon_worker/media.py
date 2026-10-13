@@ -116,3 +116,30 @@ def compute_peaks(path: Path, buckets_per_second: float = 2.0, max_buckets: int 
         "bucketSeconds": round(duration / buckets, 4),
         "peaks": [round(p, 3) for p in peaks],
     }
+
+
+def render_video(
+    cover: Path,
+    audio: Path,
+    out: Path,
+    on_progress: Callable[[float], None] | None = None,
+) -> Path:
+    """A still-image MP4 for YouTube: the cover for the whole length of the audio.
+
+    One frame a second keeps the file small and the render fast; YouTube accepts it. The audio is
+    re-encoded to AAC, which is what MP4 players expect.
+    """
+    duration = probe(audio).duration
+    run_ffmpeg(
+        [
+            "-loop", "1", "-framerate", "1", "-i", str(cover), "-i", str(audio),
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+            "-r", "1", "-g", "60",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+            "-shortest", "-movflags", "+faststart", str(out),
+        ],
+        duration,
+        on_progress,
+    )  # fmt: skip
+    return out
