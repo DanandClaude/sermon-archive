@@ -1,8 +1,16 @@
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Db } from '@/db/client';
 import { isUniqueViolation } from '@/db/errors';
-import { auditLog, scriptureRefs, sermonTags, sermons, tags, type ScriptureRef } from '@/db/schema';
+import {
+  auditLog,
+  scriptureRefs,
+  sermonTags,
+  sermons,
+  tags,
+  transcripts,
+  type ScriptureRef,
+} from '@/db/schema';
 import { formatClock } from '@/lib/format';
 import { enqueueJob } from '@/lib/jobs';
 import { filenameStem, uniqueStem } from '@/lib/naming';
@@ -22,6 +30,7 @@ import {
 } from '@/lib/scripture/canon';
 import { isApprovedOrLater } from '@/lib/sermon-status';
 import { transitionSermon } from '@/lib/sermons/transition';
+import type { Segment, Word } from '@/lib/transcripts/render';
 import { parseLabelDate } from '@/lib/uploads/label';
 
 export type ReviewCode = 'not_found' | 'forbidden' | 'invalid' | 'conflict';
@@ -295,6 +304,106 @@ async function topicNames(tx: Tx, sermonId: string): Promise<string[]> {
     .where(and(eq(sermonTags.sermonId, sermonId), eq(tags.kind, 'topic')))
     .orderBy(asc(tags.name));
   return rows.map((r) => r.name);
+}
+
+// -- transcript ------------------------------------------------------------------------------
+
+/**
+ * The words of an edited line, with timings. When the word count is unchanged each word keeps its
+ * own timing; otherwise the line's time is shared out by word length, so captions stay in step.
+ */
+export function retimeWords(segment: Segment, text: string): Word[] {
+  const spoken = text.split(/\s+/).filter(Boolean);
+  if (spoken.length === segment.words.length) {
+    return segment.words.map((w, i) => ({
+      ...w,
+      w: spoken[i],
+      prob: w.w === spoken[i] ? w.prob : 1,
+    }));
+  }
+  const total = spoken.reduce((n, w) => n + w.length, 0) || 1;
+  const span = Math.max(segment.end - segment.start, 0);
+  let at = segment.start;
+  return spoken.map((w) => {
+    const start = at;
+    at += (span * w.length) / total;
+    return { w, start: round(start), end: round(at), prob: 1 };
+  });
+}
+const round = (n: number) => Math.round(n * 1000) / 1000;
+
+export const transcriptEditSchema = z.object({
+  version: z.number().int().positive(),
+  index: z.number().int().min(0),
+  text: z
+    .string()
+    .trim()
+    .min(1, 'A line can’t be empty. Fix the words instead.')
+    .max(2000, 'Keep a line under 2,000 characters.'),
+});
+
+/**
+ * Corrects one line of the transcript. Saves a new version so the transcriber's original is kept;
+ * captions, SRT and text downloads are rendered from the latest version, so they pick it up.
+ * The edited line's doubtful-word marks are cleared, since a person has now checked it.
+ */
+export async function editTranscriptLine(
+  db: Db,
+  actor: Actor,
+  sermonId: string,
+  input: unknown,
+): Promise<{ version: number }> {
+  const parsed = transcriptEditSchema.safeParse(input);
+  if (!parsed.success)
+    throw new ReviewError('invalid', parsed.error.issues[0].message, {
+      text: parsed.error.issues[0].message,
+    });
+  const { version, index } = parsed.data;
+  const text = parsed.data.text.replace(/\s+/g, ' ');
+  return db.transaction(async (tx) => {
+    await editableSermon(tx, actor, sermonId);
+    const [latest] = await tx
+      .select()
+      .from(transcripts)
+      .where(eq(transcripts.sermonId, sermonId))
+      .orderBy(desc(transcripts.version))
+      .limit(1);
+    if (!latest) throw new ReviewError('not_found', 'This sermon has no transcript yet.');
+    if (latest.version !== version)
+      throw new ReviewError(
+        'conflict',
+        'The transcript changed while you were editing. Reload to see the latest.',
+      );
+    const segments = latest.segments as Segment[];
+    const segment = segments[index];
+    if (!segment)
+      throw new ReviewError('invalid', 'That line no longer exists. Reload and try again.');
+    if (segment.text.trim() === text) return { version };
+
+    const next = segments.map((s, i) =>
+      i === index ? { ...s, text, words: retimeWords(s, text) } : s,
+    );
+    const lowConfidence = (latest.lowConfidence as [number, number][]).filter(([i]) => i !== index);
+    await tx.insert(transcripts).values({
+      sermonId,
+      version: version + 1,
+      model: latest.model,
+      language: latest.language,
+      fullText: next
+        .map((s) => s.text.trim())
+        .filter(Boolean)
+        .join(' '),
+      segments: next,
+      lowConfidence,
+    });
+    await audit(tx, actor, 'transcript.edit', sermonId, {
+      line: index,
+      from: segment.text,
+      to: text,
+      version: version + 1,
+    });
+    return { version: version + 1 };
+  });
 }
 
 // -- summary ---------------------------------------------------------------------------------

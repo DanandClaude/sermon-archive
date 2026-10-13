@@ -9,6 +9,7 @@ import {
   addScriptureRef,
   approveSermon,
   deleteScriptureRef,
+  editTranscriptLine,
   editScriptureRef,
   requestRegenerate,
   ReviewError,
@@ -50,6 +51,10 @@ async function run<T extends object>(
 
 export async function saveDetailsAction(sermonId: string, input: unknown) {
   return run(sermonId, async (user) => updateDetails(getDb(), user, sermonId, input));
+}
+
+export async function editTranscriptLineAction(sermonId: string, input: unknown) {
+  return run(sermonId, async (user) => editTranscriptLine(getDb(), user, sermonId, input));
 }
 
 export async function saveSummaryAction(sermonId: string, summary: string) {

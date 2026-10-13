@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { editTranscriptLineAction } from './actions';
+
+vi.mock('./actions', () => ({ editTranscriptLineAction: vi.fn() }));
 import { ReviewProvider } from './ReviewContext';
 import { TranscriptPanel } from './TranscriptPanel';
 
@@ -80,5 +83,48 @@ describe('TranscriptPanel', () => {
   it('keeps the count of doubtful words visible while closed', () => {
     setup([[0, 1]]);
     expect(screen.getByText('1 word to check')).toBeTruthy();
+  });
+
+  describe('editing a line', () => {
+    const open = (canEdit: boolean) => {
+      localStorage.setItem('sermon-archive:transcript-open', '1');
+      render(
+        <ReviewProvider sermonId="s1">
+          <TranscriptPanel segments={segments} lowConfidence={[]} version={3} canEdit={canEdit} />
+        </ReviewProvider>,
+      );
+    };
+
+    it('offers Edit only to people who may change the sermon', () => {
+      open(false);
+      expect(screen.queryByRole('button', { name: /^edit/i })).toBeNull();
+    });
+
+    it('saves the corrected line with the version it was based on', async () => {
+      vi.mocked(editTranscriptLineAction).mockResolvedValue({ ok: true, version: 4 });
+      open(true);
+      fireEvent.click(screen.getByRole('button', { name: 'Edit the line at 1:05' }));
+      const box = screen.getByRole('textbox', { name: 'Line at 1:05' });
+      fireEvent.change(box, { target: { value: 'Turn to Hebrews six.' } });
+      await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+      expect(editTranscriptLineAction).toHaveBeenCalledWith('s1', {
+        version: 3,
+        index: 1,
+        text: 'Turn to Hebrews six.',
+      });
+      expect(screen.queryByRole('textbox')).toBeNull();
+    });
+
+    it('keeps the editor open and says why when saving fails', async () => {
+      vi.mocked(editTranscriptLineAction).mockResolvedValue({
+        ok: false,
+        error: 'The transcript changed while you were editing. Reload to see the latest.',
+      });
+      open(true);
+      fireEvent.click(screen.getByRole('button', { name: 'Edit the line at 0:00' }));
+      await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+      expect(screen.getByRole('alert').textContent).toMatch(/changed while you were editing/);
+      expect(screen.getByRole('textbox')).toBeTruthy();
+    });
   });
 });

@@ -152,6 +152,8 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
             <TranscriptPanel
               segments={detail.transcript.segments}
               lowConfidence={detail.transcript.lowConfidence}
+              version={detail.transcript.version}
+              canEdit={reviewable && detail.canEdit}
             />
           ) : null}
 
