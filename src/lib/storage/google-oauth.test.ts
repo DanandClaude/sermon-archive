@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { auditLog, storageTargets } from '@/db/schema';
+import { auditLog, distributionChannels, storageTargets } from '@/db/schema';
 import { ForbiddenError } from '@/lib/errors';
 import { decryptJson, signState } from '@/lib/secrets';
 import { insertUser, openTestDb, resetTables } from '../../../tests/support/db';
@@ -9,6 +9,7 @@ import {
   emailFromIdToken,
   GOOGLE_SCOPES,
   googleAuthUrl,
+  YOUTUBE_SCOPES,
 } from './google-oauth';
 
 const db = openTestDb();
@@ -170,5 +171,44 @@ describe('completeGoogleConnection', () => {
     await expect(
       completeGoogleConnection(db, contributor, { code: 'c', state: 's' }, client, tokenReply({})),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe('connecting YouTube', () => {
+  it('asks for the YouTube scope and saves the sign-in as the YouTube channel', async () => {
+    const admin = await insertUser(db, 'admin');
+    const url = new URL(googleAuthUrl(client, 'youtube', admin));
+    expect(url.searchParams.get('scope')).toBe(YOUTUBE_SCOPES.join(' '));
+    expect(url.searchParams.get('scope')).not.toContain('drive');
+    const state = url.searchParams.get('state')!;
+    const result = await completeGoogleConnection(
+      db,
+      admin,
+      { code: 'abc', state },
+      client,
+      tokenReply({ refresh_token: 'yt-rt', id_token: idToken({ email: 'church@example.org' }) }),
+    );
+    expect(result).toEqual({ ok: true, role: 'youtube' });
+    expect(await db.select().from(storageTargets)).toHaveLength(0);
+    const [row] = await db.select().from(distributionChannels);
+    expect([row.kind, row.provider, row.accountLabel]).toEqual([
+      'youtube',
+      'youtube',
+      'church@example.org',
+    ]);
+    expect(decryptJson(row.encryptedConfig!)).toMatchObject({ refreshToken: 'yt-rt' });
+  });
+
+  it('does not let a Drive sign-in link connect YouTube', async () => {
+    const admin = await insertUser(db, 'admin');
+    const state = new URL(googleAuthUrl(client, 'shared', admin)).searchParams.get('state')!;
+    await completeGoogleConnection(
+      db,
+      admin,
+      { code: 'abc', state },
+      client,
+      tokenReply({ refresh_token: 'rt', id_token: idToken({ email: 'a@example.org' }) }),
+    );
+    expect(await db.select().from(distributionChannels)).toHaveLength(0);
   });
 });
