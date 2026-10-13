@@ -17,6 +17,7 @@ recording storage a dollar or two a month, and about 3–5 cents in Claude charg
 | An email sender                                | Sign-in links                                        | Postmark, Resend, Amazon SES, your church's mail                              |
 | An Anthropic key                               | Titles, summaries, checking passages                 | console.anthropic.com                                                         |
 | Two Google accounts and a Google Cloud project | Filing to Google Drive (shared drive + admin backup) | Free                                                                          |
+| The church's YouTube channel (optional)        | Publishing sermons as videos                         | Uses the same Google Cloud project                                            |
 
 Nothing here is sent anywhere until you connect it. Audio is never sent to a transcription service:
 transcription runs on your own server or computer.
@@ -70,6 +71,22 @@ Ordinary Google accounts work; you don't need Google Workspace.
 5. Copy the **Client ID** and **Client secret**.
 
 The app can only see folders it creates itself in each Drive; it can't read anything else in those accounts.
+
+### YouTube (optional, can be done later)
+
+1. **APIs & Services → Library:** enable **YouTube Data API v3** in the same project.
+2. **OAuth consent screen → Scopes:** add `.../auth/youtube.force-ssl` (needed to upload, add captions and
+   make a video private). While the app is in "Testing", add the Google account that owns the channel as a
+   test user.
+3. Know these limits before you rely on it:
+   - Google treats this scope as **sensitive**. While the consent screen is in "Testing", the YouTube sign-in
+     **expires after 7 days** and you'd reconnect each week. Submit the app for verification (OAuth consent
+     screen → Publish app) to make it last.
+   - Until Google has also **audited** the project for the YouTube API, every upload is kept **private**
+     whatever you choose. The app tells you when this happens; you can change it on YouTube by hand. Ask for
+     an audit at support.google.com/youtube/contact/yt_api_form.
+   - The free quota allows about 6 uploads a day. The app uploads at most 5 a day by default (change it on
+     the Connections page) and waits for the next day when the quota runs out.
 
 ## 5. Fill in your settings
 
@@ -133,6 +150,9 @@ It prints a one-time sign-in link. Open it, press **Sign in**, and you're in as 
    changes.
 4. **Try one tape** before the whole archive: upload it, wait for it to reach _Needs review_, check the title,
    summary and passages, then approve it. Confirm it shows as _Filed_ and the files appear in both Drives.
+5. **Publishing (optional):** on **Connections**, press **Connect YouTube** and sign in with the channel's
+   Google account, and/or fill in the podcast details and press **Turn on the feed**. Give the feed link on
+   that page to Apple Podcasts and Spotify. Then open an approved sermon and press **Publish…**.
 
 ## Keeping it running
 
@@ -169,3 +189,5 @@ website on the server and run only the worker on the Mac:
 - **A tape says "The transcription model is not installed":** do step 7.
 - **A tape fails with a message:** open it. The message says what to fix, and Retry is on the page.
 - **Google says "access blocked":** add the account as a test user (step 4.3) or publish the consent screen.
+- **YouTube publishing fails with "sign in again" a week after connecting:** the consent screen is still in
+  "Testing" (see step 4, YouTube). Reconnect on the Connections page, and submit the app for verification.

@@ -25,7 +25,7 @@ congregation.
 - **Roles:** admins run everything; contributors upload and approve their own; viewers see approved sermons.
   Sign-in is by emailed link, by invitation only.
 
-Publishing to YouTube and a podcast feed is planned; see `SPEC.md`.
+- **Publishing (admins only):** approved sermons go to YouTube (video with a title card, description, passages and captions) and to a podcast feed the app serves itself. Unpublishing makes a video private; nothing is deleted.
 
 ## Install it for your church
 
@@ -62,4 +62,5 @@ local fakes, and the real ones only run when `NODE_ENV=production` and `ADAPTER_
 - Transcription runs on your own machine. No audio is sent to a transcription service.
 - **Anthropic API (optional).** When `ANALYZER=anthropic`, the worker sends the transcript text (never audio) to Claude to write a title, summary and topic tags and to judge which passages were named. With the default `ANALYZER=fake`, nothing leaves your machine and the title and summary are placeholders.
 - **Google Drive (production only).** Approved sermons are filed to two Drive accounts you connect: the shared archive drive (cleaned audio, transcript, subtitles, details) and an admin-only backup (also the original audio and word-timed transcript). The app asks Google only for access to the folders it creates itself, so it can't see anything else in those accounts. In development, "files" go to folders under `.data/targets/` and nothing leaves your machine.
-- Not sent anywhere yet, and listed here when added: YouTube or a podcast host (Phase 5).
+- **YouTube (production only, when an admin connects it).** For each sermon an admin publishes, the worker uploads a video (the cleaned audio over a title card), its title, description, passage list and captions. Nothing goes to YouTube unless an admin presses Publish. In development, "uploads" go to `.data/youtube/`.
+- **Podcast feed.** Served by the app at `/podcast/feed.xml` once an admin turns it on. Episodes an admin publishes there are public to anyone with the link, including the cleaned audio and transcript. Podcast apps fetch it; there is no podcast host.
