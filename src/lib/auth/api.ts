@@ -54,7 +54,12 @@ export async function readJson(request: Request): Promise<unknown | Response> {
 export function uploadErrorResponse(error: unknown): Response {
   if (error instanceof ForbiddenError) return jsonError(403, 'forbidden', error.message);
   if (error instanceof UploadError) {
-    const status = error.code === 'not_found' ? 404 : error.code === 'incomplete' ? 409 : 400;
+    const status =
+      error.code === 'not_found'
+        ? 404
+        : error.code === 'incomplete' || error.code === 'conflict'
+          ? 409
+          : 400;
     return jsonError(status, error.code, error.message, {
       fieldErrors: error.fieldErrors,
       missingParts: error.missingParts,

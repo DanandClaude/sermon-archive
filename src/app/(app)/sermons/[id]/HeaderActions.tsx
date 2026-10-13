@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { approveAction } from './actions';
+import { RejectAudioDialog } from './RejectAudioDialog';
 import { useReview } from './ReviewContext';
 
 const FIELD_NAME: Record<string, string> = {
@@ -13,10 +14,20 @@ const FIELD_NAME: Record<string, string> = {
 const listOf = (items: string[]) =>
   items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 
-/** Save draft and Approve & file. Approving saves any unsaved details first, then asks to confirm. */
-export function HeaderActions({ canApprove }: { canApprove: boolean }) {
+/**
+ * Reject recording, Save draft and Approve & file. Approving saves any unsaved details first, then
+ * asks to confirm. Rejecting asks why first.
+ */
+export function HeaderActions({
+  canApprove,
+  canReject,
+}: {
+  canApprove: boolean;
+  canReject: boolean;
+}) {
   const { sermonId, draft } = useReview();
   const [confirming, setConfirming] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -53,6 +64,16 @@ export function HeaderActions({ canApprove }: { canApprove: boolean }) {
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex flex-wrap justify-end gap-3">
+        {canReject ? (
+          <button
+            type="button"
+            onClick={() => (setRejecting(true), setConfirming(false))}
+            disabled={pending || rejecting}
+            className="inline-flex h-11 items-center rounded-xl border border-line-strong bg-surface px-[18px] text-[14.5px] font-semibold text-danger disabled:opacity-50"
+          >
+            Reject recording
+          </button>
+        ) : null}
         {draft ? (
           <button
             type="button"
@@ -66,7 +87,7 @@ export function HeaderActions({ canApprove }: { canApprove: boolean }) {
         {canApprove ? (
           <button
             type="button"
-            onClick={() => setConfirming(true)}
+            onClick={() => (setConfirming(true), setRejecting(false))}
             disabled={pending || missing.length > 0 || confirming}
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-spruce px-5 text-[14.5px] font-semibold text-white disabled:opacity-50"
           >
@@ -92,6 +113,10 @@ export function HeaderActions({ canApprove }: { canApprove: boolean }) {
         <p className="m-0 max-w-[340px] text-right text-[13px] text-muted">
           To approve, add {listOf(missing)}.
         </p>
+      ) : null}
+
+      {rejecting ? (
+        <RejectAudioDialog sermonId={sermonId} onClose={() => setRejecting(false)} />
       ) : null}
 
       {confirming ? (
