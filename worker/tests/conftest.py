@@ -104,7 +104,7 @@ from sermon_worker.store import LocalStore  # noqa: E402
 
 MIGRATIONS = Path(__file__).resolve().parents[2] / "drizzle"
 TABLES = (
-    "worker_heartbeats, storage_objects, verification_runs, storage_targets, analyses, scripture_refs, sermon_tags, tags, transcripts, jobs, uploads, "
+    "worker_heartbeats, publications, distribution_channels, storage_objects, verification_runs, storage_targets, analyses, scripture_refs, sermon_tags, tags, transcripts, jobs, uploads, "
     "audio_assets, sermons, "
     "login_tokens, sessions, audit_log, settings, users"
 )
