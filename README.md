@@ -11,10 +11,10 @@ congregation.
 
 ## What it does
 
-- **Upload** tapes one at a time or in batches, with the date and passage from the tape label. Sides A and B
-  can be separate files.
+- **Upload** tapes one at a time or in batches, with the date and passage from the tape label. Each side of a
+  tape is its own sermon.
 - **Clean up and transcribe** in the background, with word timings and the words the transcriber was unsure
-  of underlined for review.
+  of underlined for review. Reviewers can correct any line.
 - **Suggest** a title, summary, tags and the scripture references, using Claude to read the transcript text.
   A fake analyzer is available for trying it without an account.
 - **Review** on one screen: listen with a waveform, jump to any passage, add, edit or delete passages, edit
@@ -22,15 +22,18 @@ congregation.
 - **File and back up** approved sermons to two separate Google accounts, checking every file after it is
   written, with a nightly check for anything that has changed or gone missing.
 - **Nightly database backups** to your storage bucket, kept 14 days plus 8 weeks of Sunday copies.
+- **System health** for admins: whether processing, backups, filing and publishing are working, in one page.
 - **Roles:** admins run everything; contributors upload and approve their own; viewers see approved sermons.
   Sign-in is by emailed link, by invitation only.
-
 - **Publishing (admins only):** approved sermons go to YouTube (video with a title card, description, passages and captions) and to a podcast feed the app serves itself. Unpublishing makes a video private; nothing is deleted.
 
 ## Install it for your church
 
 Follow **[deploy/INSTALL.md](deploy/INSTALL.md)**: a step-by-step guide to running it on a small rented server
 with Docker. Restoring from a backup is in [deploy/RESTORE.md](deploy/RESTORE.md).
+
+Once it's running, give [docs/contributor-guide.md](docs/contributor-guide.md) to the people who upload tapes,
+and keep [docs/admin-guide.md](docs/admin-guide.md) for yourself.
 
 ## Develop it
 
