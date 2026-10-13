@@ -1,0 +1,1 @@
+ALTER TYPE "public"."channel_kind" ADD VALUE 'library';

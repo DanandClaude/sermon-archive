@@ -50,9 +50,11 @@ function CoverPreview({ cover }: { cover: PublishPreview['cover'] }) {
 function PublishDialog({ preview, onClose }: { preview: PublishPreview; onClose: () => void }) {
   const youtube = preview.channels.find((c) => c.kind === 'youtube')!;
   const podcast = preview.channels.find((c) => c.kind === 'podcast')!;
+  const library = preview.channels.find((c) => c.kind === 'library')!;
   const [chosen, setChosen] = useState<Record<ChannelKind, boolean>>({
     youtube: open(youtube),
     podcast: false,
+    library: open(library),
   });
   const [visibility, setVisibility] = useState<Visibility>(
     youtube.publication?.visibility ?? youtube.defaultVisibility,
@@ -63,13 +65,13 @@ function PublishDialog({ preview, onClose }: { preview: PublishPreview; onClose:
   const republish = youtube.publication?.state === 'removed';
 
   const needsConfirm = chosen.podcast && preview.firstPodcastEpisode && !confirmPublic;
-  const nothing = !chosen.youtube && !chosen.podcast;
+  const nothing = !chosen.youtube && !chosen.podcast && !chosen.library;
 
   function publish() {
     setErrors([]);
     start(async () => {
       const failures: string[] = [];
-      for (const kind of ['youtube', 'podcast'] as const) {
+      for (const kind of ['youtube', 'podcast', 'library'] as const) {
         if (!chosen[kind]) continue;
         const result = await publishAction(preview.sermonId, {
           channel: kind,
@@ -88,7 +90,7 @@ function PublishDialog({ preview, onClose }: { preview: PublishPreview; onClose:
     <div className="mt-3 flex flex-col gap-4 rounded-xl border border-line-strong bg-paper p-4">
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
         <legend className="mb-2 text-[13px] font-semibold">Where to</legend>
-        {[youtube, podcast].map((c) => (
+        {[youtube, podcast, library].map((c) => (
           <label
             key={c.kind}
             className={`flex min-h-11 items-center gap-3 rounded-xl border border-line bg-surface px-3.5 text-sm ${open(c) ? '' : 'opacity-60'}`}
@@ -106,9 +108,9 @@ function PublishDialog({ preview, onClose }: { preview: PublishPreview; onClose:
                 ? 'Not connected'
                 : c.publication && !open(c)
                   ? 'Already there'
-                  : c.kind === 'podcast'
-                    ? 'Public'
-                    : ''}
+                  : c.kind === 'youtube'
+                    ? ''
+                    : 'Public'}
             </span>
           </label>
         ))}
@@ -177,6 +179,13 @@ function PublishDialog({ preview, onClose }: { preview: PublishPreview; onClose:
             </label>
           ) : null}
         </div>
+      ) : null}
+
+      {chosen.library ? (
+        <p className="m-0 rounded-xl bg-spruce-tint px-3.5 py-3 text-[13.5px] text-ink">
+          Anyone can find and listen to it in the online library, with its summary, passages and
+          transcript. No sign-in is needed.
+        </p>
       ) : null}
 
       {errors.length ? (
@@ -256,6 +265,16 @@ export function PublishingCard({ preview }: { preview: PublishPreview }) {
                   Open on YouTube
                 </a>
               ) : null}
+              {c.kind === 'library' && c.publication?.state === 'published' ? (
+                <a
+                  href={`/listen/${c.publication.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1.5 inline-block text-[13px] font-semibold text-spruce"
+                >
+                  Open in the library
+                </a>
+              ) : null}
               {c.publication ? (
                 <div className="mt-2">
                   <PublicationActions
@@ -276,7 +295,7 @@ export function PublishingCard({ preview }: { preview: PublishPreview }) {
         </p>
       ) : !anyConnected ? (
         <p className="mb-0 mt-3 text-[13px] text-muted">
-          Connect YouTube or the podcast feed on the{' '}
+          Connect YouTube, or turn on the podcast feed or the online library, on the{' '}
           <Link href="/admin/connections" className="font-semibold text-spruce">
             Connections page
           </Link>{' '}

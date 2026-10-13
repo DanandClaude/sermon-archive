@@ -38,7 +38,9 @@ export function PublicationActions({
               ? live
                 ? 'Make this video private on YouTube? It is not deleted, and you can publish it again.'
                 : 'Stop this upload? Nothing has gone to YouTube yet.'
-              : 'Take this episode out of the podcast feed? Its audio link stops working. Copies people already downloaded stay on their devices.'}
+              : channel === 'library'
+                ? 'Take this sermon out of the online library? Its page and audio link stop working at once. You can publish it again later.'
+                : 'Take this episode out of the podcast feed? Its audio link stops working. Copies people already downloaded stay on their devices.'}
           </p>
           <div className="mt-2 flex gap-2">
             <button

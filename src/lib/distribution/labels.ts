@@ -19,7 +19,9 @@ export function stateLabel(p: Labelled): { text: string; tone: Tone } {
     case 'published':
       return p.channel === 'podcast'
         ? { text: 'In the feed', tone: 'ok' }
-        : { text: `Published, ${p.remoteVisibility ?? p.visibility}`, tone: 'ok' };
+        : p.channel === 'library'
+          ? { text: 'In the library', tone: 'ok' }
+          : { text: `Published, ${p.remoteVisibility ?? p.visibility}`, tone: 'ok' };
     case 'failed':
       return { text: 'Failed', tone: 'bad' };
     case 'removing':
@@ -27,7 +29,9 @@ export function stateLabel(p: Labelled): { text: string; tone: Tone } {
     case 'removed':
       return p.channel === 'podcast'
         ? { text: 'Removed from the feed', tone: 'none' }
-        : { text: 'Unpublished (private)', tone: 'none' };
+        : p.channel === 'library'
+          ? { text: 'Removed from the library', tone: 'none' }
+          : { text: 'Unpublished (private)', tone: 'none' };
   }
 }
 

@@ -65,6 +65,29 @@ export function readPodcastSettings(value: unknown, profile: AppSettings): Podca
   return parsed.success ? parsed.data : podcastDefaults(profile);
 }
 
+/** The online library's name and welcome line, edited on the Connections page. */
+export const librarySettingsSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Give the library a name.')
+    .max(120, 'Keep it under 120 characters.'),
+  description: z.string().trim().max(600, 'Keep it under 600 characters.').default(''),
+});
+export type LibrarySettings = z.infer<typeof librarySettingsSchema>;
+
+export function libraryDefaults(profile: AppSettings): LibrarySettings {
+  return {
+    title: `${profile.churchName} Sermons`,
+    description: `Listen to sermons from ${profile.churchName}, digitized from the church's cassette tapes.`,
+  };
+}
+
+export function readLibrarySettings(value: unknown, profile: AppSettings): LibrarySettings {
+  const parsed = librarySettingsSchema.safeParse(value);
+  return parsed.success ? parsed.data : libraryDefaults(profile);
+}
+
 export type ChannelStatus = {
   kind: ChannelKind;
   connected: boolean;
@@ -74,6 +97,7 @@ export type ChannelStatus = {
   disconnectedAt: Date | null;
   youtube: YouTubeSettings | null;
   podcast: PodcastSettings | null;
+  library: LibrarySettings | null;
   artworkReady: boolean;
   counts: Record<PublicationState, number>;
 };
@@ -90,7 +114,7 @@ const emptyCounts = (): Record<PublicationState, number> => ({
 export const isConnected = (row: { disconnectedAt: Date | null; connectedAt: Date | null }) =>
   row.connectedAt !== null && row.disconnectedAt === null;
 
-/** Both channels as the Connections screen shows them. Never includes credentials. */
+/** Every channel as the Connections screen shows it. Never includes credentials. */
 export async function listChannels(
   db: Db,
   actor: Actor,
@@ -115,6 +139,7 @@ export async function listChannels(
       disconnectedAt: row?.disconnectedAt ?? null,
       youtube: kind === 'youtube' ? readYouTubeSettings(row?.settings) : null,
       podcast: kind === 'podcast' ? readPodcastSettings(row?.settings, profile) : null,
+      library: kind === 'library' ? readLibrarySettings(row?.settings, profile) : null,
       artworkReady: !!row?.artworkKey,
       counts: tally,
     };
@@ -246,6 +271,42 @@ export async function saveYouTubeSettings(
   return parsed.data;
 }
 
+function fieldErrorsOf(error: z.ZodError): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of error.issues) fieldErrors[String(issue.path[0])] ??= issue.message;
+  return fieldErrors;
+}
+
+/** Turns on, or saves the details of, a channel this app serves itself (podcast or library). */
+async function saveAppServedChannel(
+  db: Db,
+  actor: Actor,
+  kind: 'podcast' | 'library',
+  settings: PodcastSettings | LibrarySettings,
+) {
+  await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(distributionChannels)
+      .where(eq(distributionChannels.kind, kind))
+      .for('update');
+    const turnedOn = !current || !isConnected(current);
+    await upsertChannel(tx, kind, {
+      provider: kind === 'podcast' ? 'feed' : 'site',
+      settings,
+      accountLabel: 'Served by this app',
+      ...(turnedOn ? { connectedBy: actor.id, connectedAt: new Date(), disconnectedAt: null } : {}),
+    });
+    await tx.insert(auditLog).values({
+      actorId: actor.id,
+      action: turnedOn ? 'channel.connect' : 'channel.settings',
+      entity: 'distribution_channel',
+      entityId: kind,
+      diff: { to: settings },
+    });
+  });
+}
+
 /**
  * Turns the podcast feed on, or saves its details. The feed is served by this app, so there is no
  * account to sign in to.
@@ -257,38 +318,37 @@ export async function savePodcastSettings(
 ): Promise<PodcastSettings> {
   assertCan(actor.role, 'connections.manage');
   const parsed = podcastSettingsSchema.safeParse(input);
-  if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] ??= issue.message;
-    throw new DistributionError('invalid', 'Check the highlighted details.', fieldErrors);
-  }
-  await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(distributionChannels)
-      .where(eq(distributionChannels.kind, 'podcast'))
-      .for('update');
-    const turnedOn = !current || !isConnected(current);
-    await upsertChannel(tx, 'podcast', {
-      provider: 'feed',
-      settings: parsed.data,
-      accountLabel: 'Served by this app',
-      ...(turnedOn ? { connectedBy: actor.id, connectedAt: new Date(), disconnectedAt: null } : {}),
-    });
-    await tx.insert(auditLog).values({
-      actorId: actor.id,
-      action: turnedOn ? 'channel.connect' : 'channel.settings',
-      entity: 'distribution_channel',
-      entityId: 'podcast',
-      diff: { to: parsed.data },
-    });
-  });
+  if (!parsed.success)
+    throw new DistributionError(
+      'invalid',
+      'Check the highlighted details.',
+      fieldErrorsOf(parsed.error),
+    );
+  await saveAppServedChannel(db, actor, 'podcast', parsed.data);
+  return parsed.data;
+}
+
+/** Turns the public online library on, or saves its name and description. */
+export async function saveLibrarySettings(
+  db: Db,
+  actor: Actor,
+  input: unknown,
+): Promise<LibrarySettings> {
+  assertCan(actor.role, 'connections.manage');
+  const parsed = librarySettingsSchema.safeParse(input);
+  if (!parsed.success)
+    throw new DistributionError(
+      'invalid',
+      'Check the highlighted details.',
+      fieldErrorsOf(parsed.error),
+    );
+  await saveAppServedChannel(db, actor, 'library', parsed.data);
   return parsed.data;
 }
 
 /**
- * YouTube: wipes the sign-in; videos stay as they are on YouTube. Podcast: the feed stops being
- * served until it is turned on again; episodes keep their state and come back with it.
+ * YouTube: wipes the sign-in; videos stay as they are on YouTube. Podcast and library: stop being
+ * served until turned on again; episodes keep their state and come back with it.
  */
 export async function disconnectChannel(db: Db, actor: Actor, kind: ChannelKind): Promise<void> {
   assertCan(actor.role, 'connections.manage');

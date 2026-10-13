@@ -182,6 +182,7 @@ describe('connecting channels', () => {
     expect(listed.map((c) => [c.kind, c.connected, c.accountLabel])).toEqual([
       ['youtube', true, 'church@example.org'],
       ['podcast', false, null],
+      ['library', false, null],
     ]);
     expect(JSON.stringify(await db.select().from(auditLog))).not.toContain('yt-secret');
   });

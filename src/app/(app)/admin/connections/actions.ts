@@ -14,6 +14,7 @@ import {
   connectTestYouTube,
   disconnectChannel,
   DistributionError,
+  saveLibrarySettings,
   savePodcastSettings,
   saveYouTubeSettings,
 } from '@/lib/distribution/channels';
@@ -89,7 +90,7 @@ export async function connectTestYouTubeAction(): Promise<StorageActionResult> {
 export async function disconnectChannelAction(kind: string): Promise<StorageActionResult> {
   return run(async (user) => {
     if (!isChannelKind(kind))
-      throw new DistributionError('invalid', 'Choose YouTube or the podcast.');
+      throw new DistributionError('invalid', 'Choose YouTube, the podcast or the library.');
     await disconnectChannel(getDb(), user, kind);
   });
 }
@@ -105,5 +106,12 @@ export async function savePodcastSettingsAction(input: unknown): Promise<Storage
   return run(async (user) => {
     await savePodcastSettings(getDb(), user, input);
     return 'Saved. The feed shows the new details within a few minutes.';
+  });
+}
+
+export async function saveLibrarySettingsAction(input: unknown): Promise<StorageActionResult> {
+  return run(async (user) => {
+    await saveLibrarySettings(getDb(), user, input);
+    return 'Saved.';
   });
 }
