@@ -17,6 +17,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { CHANNEL_KINDS, PUBLICATION_STATES, VISIBILITIES } from '../lib/distribution/states';
 import { FAILED_STAGES, JOB_STATES, JOB_TYPES } from '../lib/job-types';
 import { ROLES } from '../lib/roles';
 import { SERMON_STATUSES } from '../lib/sermon-status';
@@ -464,6 +465,95 @@ export const verificationRuns = pgTable(
   ],
 );
 
+export const channelKind = pgEnum('channel_kind', CHANNEL_KINDS);
+export const publicationState = pgEnum('publication_state', PUBLICATION_STATES);
+export const visibility = pgEnum('visibility', VISIBILITIES);
+
+/**
+ * Where an admin can publish approved sermons: one YouTube channel and one podcast feed.
+ * YouTube's sign-in (a Google refresh token) is encrypted at rest like the storage credentials.
+ * The podcast feed is served by this app, so it has settings (show title, author and so on) but no
+ * credentials.
+ */
+export const distributionChannels = pgTable('distribution_channels', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: channelKind('kind').notNull().unique(),
+  /** 'youtube', 'fake' (a development stand-in that writes to .data/), or 'feed' for the podcast. */
+  provider: text('provider').notNull(),
+  encryptedConfig: text('encrypted_config'),
+  /** For display: the Google account email, or a label. */
+  accountLabel: text('account_label'),
+  /** YouTube: { defaultVisibility, dailyUploads }. Podcast: show title, author, description and so on. */
+  settings: jsonb('settings').notNull().default({}),
+  /** Podcast cover art the worker drew from the settings, and the settings it was drawn from. */
+  artworkKey: text('artwork_key'),
+  artworkFor: text('artwork_for'),
+  connectedBy: uuid('connected_by').references(() => users.id),
+  connectedAt: timestamp('connected_at', { withTimezone: true }),
+  /** Set when an admin disconnects; YouTube credentials are wiped at the same time. */
+  disconnectedAt: timestamp('disconnected_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One row per sermon per channel. It is also the YouTube publishing queue: the worker claims rows
+ * that are `queued` or `removing` with FOR UPDATE SKIP LOCKED, like jobs. Sermon status is not
+ * touched; publishing is a separate track from the pipeline.
+ */
+export const publications = pgTable(
+  'publications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sermonId: uuid('sermon_id')
+      .notNull()
+      .references(() => sermons.id),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => distributionChannels.id),
+    state: publicationState('state').notNull().default('queued'),
+    /** What the admin chose. Always public for a podcast. */
+    visibility: visibility('visibility').notNull(),
+    /** What YouTube reports. It can be private whatever was asked, until the API project is audited. */
+    remoteVisibility: visibility('remote_visibility'),
+    remoteId: text('remote_id'),
+    remoteUrl: text('remote_url'),
+    /** YouTube's title and description, fixed when the admin pressed Publish (what they previewed). */
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    captionsId: text('captions_id'),
+    /** YouTube's resumable upload address, kept so a retry resumes instead of uploading twice. */
+    uploadSession: text('upload_session'),
+    /** When the upload to YouTube started. Uploads started in the last day count against the daily limit. */
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
+    attempts: integer('attempts').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(5),
+    runAfter: timestamp('run_after', { withTimezone: true }).notNull().defaultNow(),
+    /** Plain language, for the admin. */
+    lastError: text('last_error'),
+    /** The raw error, for whoever fixes it. */
+    errorDetail: text('error_detail'),
+    lockedBy: text('locked_by'),
+    heartbeatAt: timestamp('heartbeat_at', { withTimezone: true }),
+    requestedBy: uuid('requested_by')
+      .notNull()
+      .references(() => users.id),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+    /** First time it went live. Podcast episodes keep this date if they are removed and come back. */
+    firstPublishedAt: timestamp('first_published_at', { withTimezone: true }),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    removedBy: uuid('removed_by').references(() => users.id),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('publications_sermon_channel_idx').on(t.sermonId, t.channelId),
+    index('publications_claim_idx').on(t.state, t.runAfter),
+    index('publications_channel_state_idx').on(t.channelId, t.state),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Sermon = typeof sermons.$inferSelect;
 export type Upload = typeof uploads.$inferSelect;
@@ -474,4 +564,6 @@ export type Transcript = typeof transcripts.$inferSelect;
 export type StorageTarget = typeof storageTargets.$inferSelect;
 export type StorageObject = typeof storageObjects.$inferSelect;
 export type VerificationRun = typeof verificationRuns.$inferSelect;
+export type DistributionChannel = typeof distributionChannels.$inferSelect;
+export type Publication = typeof publications.$inferSelect;
 export type { Role as UserRole } from '../lib/roles';

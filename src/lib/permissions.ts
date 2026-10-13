@@ -73,3 +73,13 @@ export function canRetrySermon(actor: Actor, sermon: SermonFacts): boolean {
   if (actor.role === 'admin') return true;
   return actor.role === 'contributor' && sermon.contributorId === actor.id;
 }
+
+/**
+ * SPEC §8: only admins publish, and only sermons a person has approved. Filing does not have to
+ * have finished, because publishing uses the app's own copy of the cleaned audio. Unpublishing
+ * uses the same rule, so an admin can always take down something that is out.
+ */
+export function canPublishSermon(actor: Actor, sermon: SermonFacts): boolean {
+  if (sermon.deleted || !can(actor.role, 'sermon.publish')) return false;
+  return isApprovedOrLater(sermon.status);
+}

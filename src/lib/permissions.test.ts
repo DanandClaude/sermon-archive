@@ -4,6 +4,7 @@ import {
   assertCan,
   canApproveSermon,
   canEditSermon,
+  canPublishSermon,
   canRetrySermon,
   canViewSermon,
   can,
@@ -168,6 +169,32 @@ describe('canRetrySermon', () => {
         { ...me, role: 'admin' },
         { contributorId: 'me', status: 'failed', deleted: true },
       ),
+    ).toBe(false);
+  });
+});
+
+describe('canPublishSermon', () => {
+  it.each(SERMON_STATUSES)('lets only admins publish, and only approved sermons (%s)', (status) => {
+    const approved = ['approved', 'filing', 'filed'].includes(status);
+    for (const role of ROLES) {
+      expect(canPublishSermon({ ...me, role }, { contributorId: 'me', status })).toBe(
+        role === 'admin' && approved,
+      );
+    }
+  });
+
+  it('refuses a deleted sermon, even for an admin', () => {
+    expect(
+      canPublishSermon(
+        { ...me, role: 'admin' },
+        { contributorId: other, status: 'filed', deleted: true },
+      ),
+    ).toBe(false);
+  });
+
+  it('does not let a contributor publish their own approved sermon', () => {
+    expect(
+      canPublishSermon({ ...me, role: 'contributor' }, { contributorId: 'me', status: 'filed' }),
     ).toBe(false);
   });
 });
