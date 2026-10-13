@@ -22,7 +22,8 @@
     "worker:test": "cd worker && .venv/bin/python -m pytest",
     "worker:lint": "cd worker && .venv/bin/ruff check src tests && .venv/bin/ruff format --check src tests",
     "worker:install-mlx": "worker/.venv/bin/pip install -e \"worker[dev,mlx]\"",
-    "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist --out-extension:.js=.mjs --banner:js=\"import{createRequire}from'module';import{fileURLToPath}from'url';import{dirname}from'path';const require=createRequire(import.meta.url);const __filename=fileURLToPath(import.meta.url);const __dirname=dirname(__filename);\""
+    "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist --out-extension:.js=.mjs --banner:js=\"import{createRequire}from'module';import{fileURLToPath}from'url';import{dirname}from'path';const require=createRequire(import.meta.url);const __filename=fileURLToPath(import.meta.url);const __dirname=dirname(__filename);\"",
+    "a11y": "tsx scripts/a11y-audit.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1135.0",
@@ -37,6 +38,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
@@ -53,6 +55,7 @@
     "eslint-config-next": "16.3.5",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^30.1.0",
+    "playwright-core": "1.56.1",
     "prettier": "^3.9.8",
     "smtp-server": "^3.19.13",
     "tailwindcss": "^4",
