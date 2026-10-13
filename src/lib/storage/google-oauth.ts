@@ -1,6 +1,7 @@
 import type { Db } from '@/db/client';
 import { assertCan, type Actor } from '@/lib/permissions';
 import { signState, verifyState } from '@/lib/secrets';
+import { connectYouTube, DistributionError } from '@/lib/distribution/channels';
 import { connectGoogleDrive, isRole, StorageError, type StorageRole } from './connections';
 
 /**
@@ -14,6 +15,20 @@ export const GOOGLE_SCOPES = [
   'email',
 ] as const;
 
+/**
+ * YouTube needs `youtube.force-ssl` to upload videos and captions and to change a video's privacy
+ * when it is unpublished. It is the narrowest scope that covers all three.
+ */
+export const YOUTUBE_SCOPES = [
+  'https://www.googleapis.com/auth/youtube.force-ssl',
+  'openid',
+  'email',
+] as const;
+
+/** What a Google sign-in is for: one of the two storage targets, or the YouTube channel. */
+export type GoogleTarget = StorageRole | 'youtube';
+const isTarget = (value: unknown): value is GoogleTarget => isRole(value) || value === 'youtube';
+
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const STATE_TTL_SEC = 10 * 60;
@@ -21,13 +36,13 @@ const STATE_TTL_SEC = 10 * 60;
 export type GoogleClient = { clientId: string; clientSecret: string; redirectUri: string };
 
 /** Where an admin is sent to sign in to Google. The state proves the round trip is ours. */
-export function googleAuthUrl(client: GoogleClient, role: StorageRole, actor: Actor): string {
+export function googleAuthUrl(client: GoogleClient, role: GoogleTarget, actor: Actor): string {
   const state = signState({ role, userId: actor.id }, STATE_TTL_SEC);
   const params = new URLSearchParams({
     client_id: client.clientId,
     redirect_uri: client.redirectUri,
     response_type: 'code',
-    scope: GOOGLE_SCOPES.join(' '),
+    scope: (role === 'youtube' ? YOUTUBE_SCOPES : GOOGLE_SCOPES).join(' '),
     // Offline access with a fresh consent, so Google always returns a refresh token.
     access_type: 'offline',
     prompt: 'consent',
@@ -51,7 +66,7 @@ export function emailFromIdToken(idToken: string): string | null {
   }
 }
 
-export type CallbackResult = { ok: true; role: StorageRole } | { ok: false; error: string };
+export type CallbackResult = { ok: true; role: GoogleTarget } | { ok: false; error: string };
 
 /**
  * Finishes connecting: checks the state belongs to this admin, trades the code for a refresh
@@ -67,7 +82,7 @@ export async function completeGoogleConnection(
   assertCan(actor.role, 'connections.manage');
   if (input.googleError) return { ok: false, error: 'Google did not connect the account.' };
   const state = input.state ? verifyState<{ role: string; userId: string }>(input.state) : null;
-  if (!state || state.userId !== actor.id || !isRole(state.role) || !input.code) {
+  if (!state || state.userId !== actor.id || !isTarget(state.role) || !input.code) {
     return { ok: false, error: 'That sign-in link has expired. Start again.' };
   }
   let tokens: { refresh_token?: string; id_token?: string };
@@ -92,11 +107,17 @@ export async function completeGoogleConnection(
   if (!tokens.refresh_token || !email) {
     return { ok: false, error: 'Google did not return a lasting sign-in. Try again.' };
   }
+  const role = state.role;
   try {
-    await connectGoogleDrive(db, actor, state.role, { refreshToken: tokens.refresh_token, email });
+    if (role === 'youtube') {
+      await connectYouTube(db, actor, { refreshToken: tokens.refresh_token, email });
+    } else {
+      await connectGoogleDrive(db, actor, role, { refreshToken: tokens.refresh_token, email });
+    }
   } catch (error) {
-    if (error instanceof StorageError) return { ok: false, error: error.message };
+    if (error instanceof StorageError || error instanceof DistributionError)
+      return { ok: false, error: error.message };
     throw error;
   }
-  return { ok: true, role: state.role };
+  return { ok: true, role };
 }
