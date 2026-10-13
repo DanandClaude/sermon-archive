@@ -22,7 +22,13 @@ type Finding = {
   nodes: string[];
 };
 
-const COMMON = ['/library', '/library?view=grid', '/profile', '/this-page-does-not-exist'];
+const COMMON = [
+  '/library',
+  '/library?view=grid',
+  '/library?q=watch&decade=1980',
+  '/profile',
+  '/this-page-does-not-exist',
+];
 const BY_ROLE: Record<Role, string[]> = {
   viewer: [],
   contributor: ['/upload', '/review'],

@@ -6,8 +6,17 @@ import { getDb } from '@/db/client';
 import { requireCapability } from '@/lib/auth/guard';
 import { formatRecordedOn } from '@/lib/format';
 import { can } from '@/lib/permissions';
+import {
+  libraryFilterOptions,
+  LIBRARY_TABS,
+  listLibrary,
+  PAGE_SIZE,
+  parseFilters,
+  type LibraryFilters,
+  type LibraryTab,
+} from '@/lib/sermons/library';
 import { LibraryGrid } from './LibraryGrid';
-import { LIBRARY_TABS, listLibrary, PAGE_SIZE, type LibraryTab } from '@/lib/sermons/library';
+import { TranscriptSnippet } from './TranscriptSnippet';
 
 export const metadata = { title: 'Library' };
 
@@ -19,10 +28,24 @@ const TAB_LABEL: Record<LibraryTab, string> = {
 };
 
 type View = 'list' | 'grid';
+type State = { q?: string; tab?: LibraryTab; page?: number; view?: View } & LibraryFilters;
 
-function href(params: { q?: string; tab?: LibraryTab; page?: number; view?: View }) {
+const CATEGORY_GROUPS = [
+  ['testament', 'Testament'],
+  ['genre', 'Kind of book'],
+  ['topic', 'Topic'],
+] as const;
+
+const SELECT =
+  'box-border h-11 max-w-full rounded-[10px] border border-line-strong bg-surface px-3 text-[14px]';
+
+function href(params: State) {
   const search = new URLSearchParams();
   if (params.q) search.set('q', params.q);
+  if (params.book) search.set('book', params.book);
+  if (params.category) search.set('category', params.category);
+  if (params.decade) search.set('decade', String(params.decade));
+  if (params.contributor) search.set('contributor', params.contributor);
   if (params.tab && params.tab !== 'all') search.set('tab', params.tab);
   if (params.view === 'grid') search.set('view', 'grid');
   if (params.page && params.page > 1) search.set('page', String(params.page));
@@ -33,7 +56,7 @@ function href(params: { q?: string; tab?: LibraryTab; page?: number; view?: View
 export default async function LibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tab?: string; page?: string; view?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireCapability('library.browse');
   const sp = await searchParams;
@@ -42,7 +65,14 @@ export default async function LibraryPage({
     ? (sp.tab as LibraryTab)
     : 'all';
   const view: View = sp.view === 'grid' ? 'grid' : 'list';
-  const result = await listLibrary(getDb(), user, { q, tab, page: Number(sp.page) });
+  const filters = parseFilters(sp);
+  const filtered = Object.keys(filters).length > 0;
+  const state: State = { q, tab, view, ...filters };
+  const db = getDb();
+  const [result, options] = await Promise.all([
+    listLibrary(db, user, { ...state, page: Number(sp.page) }),
+    libraryFilterOptions(db, user),
+  ]);
   const canUpload = can(user.role, 'sermon.upload');
   // Viewers only ever see approved sermons, so status tabs would all read zero.
   const showTabs = user.role !== 'viewer';
@@ -68,34 +98,121 @@ export default async function LibraryPage({
       />
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <form role="search" action="/library" className="flex flex-wrap items-center gap-2">
+        <form
+          role="search"
+          action="/library"
+          aria-label="Search and filter the library"
+          className="flex flex-col gap-2"
+        >
           {tab !== 'all' ? <input type="hidden" name="tab" value={tab} /> : null}
           {view === 'grid' ? <input type="hidden" name="view" value="grid" /> : null}
-          <label htmlFor="library-search" className="sr-only">
-            Search the library
-          </label>
-          <input
-            id="library-search"
-            name="q"
-            defaultValue={q}
-            type="search"
-            placeholder="Search titles, files, scripture, people"
-            className="box-border h-11 w-[340px] max-w-full rounded-[10px] border border-line-strong bg-surface px-3.5 text-[14.5px]"
-          />
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center rounded-[10px] border border-line-strong bg-surface px-4 text-[14px] font-semibold"
-          >
-            Search
-          </button>
-          {q ? (
-            <Link
-              href={href({ tab, view })}
-              className="inline-flex h-11 items-center px-2 text-[14px] font-semibold text-spruce"
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="library-search" className="sr-only">
+              Search the library
+            </label>
+            <input
+              id="library-search"
+              name="q"
+              defaultValue={q}
+              type="search"
+              placeholder="Search titles, passages, transcripts, people"
+              className="box-border h-11 w-[380px] max-w-full rounded-[10px] border border-line-strong bg-surface px-3.5 text-[14.5px]"
+            />
+            <button
+              type="submit"
+              className="inline-flex h-11 items-center rounded-[10px] border border-line-strong bg-surface px-4 text-[14px] font-semibold"
             >
-              Clear
-            </Link>
-          ) : null}
+              Search
+            </button>
+            {q || filtered ? (
+              <Link
+                href={href({ tab, view })}
+                className="inline-flex h-11 items-center px-2 text-[14px] font-semibold text-spruce"
+              >
+                Clear all
+              </Link>
+            ) : null}
+          </div>
+          <fieldset className="m-0 flex flex-wrap items-center gap-2 border-0 p-0">
+            <legend className="sr-only">Filters</legend>
+            <label htmlFor="filter-book" className="sr-only">
+              Book
+            </label>
+            <select
+              id="filter-book"
+              name="book"
+              defaultValue={filters.book ?? ''}
+              className={SELECT}
+            >
+              <option value="">Any book</option>
+              {options.books.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="filter-category" className="sr-only">
+              Category
+            </label>
+            <select
+              id="filter-category"
+              name="category"
+              defaultValue={filters.category ?? ''}
+              className={SELECT}
+            >
+              <option value="">Any category</option>
+              {CATEGORY_GROUPS.map(([kind, label]) => {
+                const items = options.categories.filter((c) => c.kind === kind);
+                return items.length ? (
+                  <optgroup key={kind} label={label}>
+                    {items.map((c) => (
+                      <option key={c.name} value={`${c.kind}:${c.name}`}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null;
+              })}
+            </select>
+            <label htmlFor="filter-decade" className="sr-only">
+              Decade
+            </label>
+            <select
+              id="filter-decade"
+              name="decade"
+              defaultValue={filters.decade ? String(filters.decade) : ''}
+              className={SELECT}
+            >
+              <option value="">Any decade</option>
+              {options.decades.map((d) => (
+                <option key={d} value={d}>
+                  {d}s
+                </option>
+              ))}
+            </select>
+            <label htmlFor="filter-contributor" className="sr-only">
+              Contributor
+            </label>
+            <select
+              id="filter-contributor"
+              name="contributor"
+              defaultValue={filters.contributor ?? ''}
+              className={SELECT}
+            >
+              <option value="">Anyone</option>
+              {options.contributors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="inline-flex h-11 items-center rounded-[10px] bg-ink px-4 text-[14px] font-semibold text-white"
+            >
+              Apply filters
+            </button>
+          </fieldset>
         </form>
 
         {showTabs ? (
@@ -103,7 +220,7 @@ export default async function LibraryPage({
             {LIBRARY_TABS.map((t) => (
               <Link
                 key={t}
-                href={href({ q, tab: t, view })}
+                href={href({ ...state, tab: t })}
                 aria-current={t === tab ? 'page' : undefined}
                 className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-[14px] font-semibold ${
                   t === tab ? 'bg-ink text-white' : 'border border-line-strong bg-surface text-ink'
@@ -122,7 +239,7 @@ export default async function LibraryPage({
           {(['list', 'grid'] as const).map((v) => (
             <Link
               key={v}
-              href={href({ q, tab, view: v, page: result.page })}
+              href={href({ ...state, view: v, page: result.page })}
               aria-current={v === view ? 'page' : undefined}
               className={`inline-flex h-11 items-center rounded-[9px] px-4 text-[13.5px] font-semibold ${
                 v === view ? 'bg-surface text-ink' : 'text-muted'
@@ -141,11 +258,11 @@ export default async function LibraryPage({
         {result.rows.length === 0 ? (
           <div className="px-6 py-14 text-center">
             <p className="m-0 text-[16px] font-semibold">
-              {q || tab !== 'all' ? 'No sermons match.' : 'No sermons yet.'}
+              {q || filtered || tab !== 'all' ? 'No sermons match.' : 'No sermons yet.'}
             </p>
             <p className="mx-auto mb-0 mt-2 max-w-[420px] text-[14px] text-muted">
-              {q || tab !== 'all'
-                ? 'Try a different search or status.'
+              {q || filtered || tab !== 'all'
+                ? 'Try a different search, filter or status.'
                 : user.role === 'viewer'
                   ? 'Approved sermons will appear here once they are filed.'
                   : canUpload
@@ -183,6 +300,7 @@ export default async function LibraryPage({
                       </span>
                     </div>
                     {detail ? <div className="mt-0.5 text-[13px] text-muted">{detail}</div> : null}
+                    {row.snippet ? <TranscriptSnippet text={row.snippet} /> : null}
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13.5px] text-muted">
                       <span>{row.labelScripture ?? '—'}</span>
                       <span>
@@ -242,6 +360,7 @@ export default async function LibraryPage({
                           {detail ? (
                             <div className="mt-0.5 text-[13px] text-muted">{detail}</div>
                           ) : null}
+                          {row.snippet ? <TranscriptSnippet text={row.snippet} /> : null}
                         </td>
                         <td className="px-3 py-4 align-top">
                           {row.labelScripture ?? <span className="text-faint">—</span>}
@@ -271,7 +390,7 @@ export default async function LibraryPage({
             <nav aria-label="Pages" className="flex gap-2">
               {result.page > 1 ? (
                 <Link
-                  href={href({ q, tab, view, page: result.page - 1 })}
+                  href={href({ ...state, page: result.page - 1 })}
                   className="inline-flex h-11 items-center rounded-[10px] border border-line-strong bg-surface px-4 font-semibold text-ink"
                 >
                   Previous
@@ -279,7 +398,7 @@ export default async function LibraryPage({
               ) : null}
               {result.page < result.pageCount ? (
                 <Link
-                  href={href({ q, tab, view, page: result.page + 1 })}
+                  href={href({ ...state, page: result.page + 1 })}
                   className="inline-flex h-11 items-center rounded-[10px] border border-line-strong bg-surface px-4 font-semibold text-ink"
                 >
                   Next
