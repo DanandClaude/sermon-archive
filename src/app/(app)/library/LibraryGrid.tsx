@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { StatusChip } from '@/components/StatusChip';
 import { formatClock, formatRecordedOn } from '@/lib/format';
 import type { LibraryRow } from '@/lib/sermons/library';
+import { TranscriptSnippet } from './TranscriptSnippet';
 
 /** The Library as cards: easier to scan by passage and summary than the table. */
 export function LibraryGrid({ rows }: { rows: LibraryRow[] }) {
@@ -37,7 +38,9 @@ export function LibraryGrid({ rows }: { rows: LibraryRow[] }) {
             <p className="m-0 text-[14px] font-semibold text-spruce">
               {row.labelScripture ?? <span className="font-normal text-faint">No passage yet</span>}
             </p>
-            {row.summary ? (
+            {row.snippet ? (
+              <TranscriptSnippet text={row.snippet} />
+            ) : row.summary ? (
               <p className="m-0 line-clamp-3 text-[13.5px] leading-[1.5] text-muted">
                 {row.summary}
               </p>

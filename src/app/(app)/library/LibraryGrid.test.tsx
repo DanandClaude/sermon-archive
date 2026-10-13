@@ -16,6 +16,7 @@ const row = (over: Partial<LibraryRow> = {}): LibraryRow => ({
   contributorName: 'Ruth',
   summary: 'Trusting the leaders who keep watch over our souls.',
   durationSec: 2512,
+  snippet: null,
   ...over,
 });
 
@@ -48,5 +49,12 @@ describe('LibraryGrid', () => {
     expect(second.getByRole('link', { name: 'tape14.mp3' })).toBeTruthy();
     expect(second.getByText('Date needed')).toBeTruthy();
     expect(second.getByText('No passage yet')).toBeTruthy();
+  });
+
+  it('shows the matching transcript words instead of the summary when a search hit the transcript', () => {
+    render(<LibraryGrid rows={[row({ snippet: 'they \u0001watch\u0002 for your souls' })]} />);
+    const card = within(screen.getByRole('listitem'));
+    expect(card.getByText('watch').tagName).toBe('MARK');
+    expect(card.queryByText(/Trusting the leaders/)).toBeNull();
   });
 });

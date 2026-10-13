@@ -42,6 +42,14 @@ passage and a title. Once approved, the sermon gets its file name (such as
 `1988-03-13_Hebrews-13-17_Submitting-to-Leaders`) and is copied to the church's archive drive. After that,
 only an admin can change it.
 
+## Finding a sermon
+
+The **Library** search box looks in titles, file names, people, the tape label and every transcript. Type a
+passage such as `Heb 13:17` or `Romans 8` to find sermons where the pastor names it; a sermon on Hebrews
+13:15–18 counts as a match for verse 17. Transcript matches show the words that matched under the title.
+Narrow the list with **Book**, **Category**, **Decade** and **Contributor**, then press **Apply filters**.
+The address in the browser keeps your search, so you can send it to someone else.
+
 ## If something goes wrong
 
 - **"Needs attention" on a sermon:** open it. The message says what happened, and **Retry** is on the page.
