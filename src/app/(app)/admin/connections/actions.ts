@@ -10,10 +10,20 @@ import {
   isRole,
   StorageError,
 } from '@/lib/storage/connections';
+import {
+  connectTestYouTube,
+  disconnectChannel,
+  DistributionError,
+  savePodcastSettings,
+  saveYouTubeSettings,
+} from '@/lib/distribution/channels';
+import { isChannelKind } from '@/lib/distribution/states';
 import { fileWaitingSermons, requestVerification } from '@/lib/storage/filing';
 import { isRealMode } from '@/lib/storage/google-client';
 
-export type StorageActionResult = { ok: true; message?: string } | { ok: false; error: string };
+export type StorageActionResult =
+  | { ok: true; message?: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> };
 
 /** Every action here is for admins only, checked on the server before anything else happens. */
 async function run(
@@ -26,6 +36,8 @@ async function run(
     return { ok: true, message: message ?? undefined } as const;
   } catch (error) {
     if (error instanceof StorageError) return { ok: false, error: error.message } as const;
+    if (error instanceof DistributionError)
+      return { ok: false, error: error.message, fieldErrors: error.fieldErrors } as const;
     throw error;
   }
 }
@@ -62,5 +74,36 @@ export async function fileWaitingAction(): Promise<StorageActionResult> {
     return queued === 0
       ? 'Nothing was waiting.'
       : `Filing ${queued} ${queued === 1 ? 'sermon' : 'sermons'}.`;
+  });
+}
+
+/** Development only: a stand-in YouTube channel that "uploads" to a folder on this machine. */
+export async function connectTestYouTubeAction(): Promise<StorageActionResult> {
+  return run(async (user) => {
+    if (isRealMode())
+      throw new DistributionError('invalid', 'Sign in with Google to connect a real channel.');
+    await connectTestYouTube(getDb(), user);
+  });
+}
+
+export async function disconnectChannelAction(kind: string): Promise<StorageActionResult> {
+  return run(async (user) => {
+    if (!isChannelKind(kind))
+      throw new DistributionError('invalid', 'Choose YouTube or the podcast.');
+    await disconnectChannel(getDb(), user, kind);
+  });
+}
+
+export async function saveYouTubeSettingsAction(input: unknown): Promise<StorageActionResult> {
+  return run(async (user) => {
+    await saveYouTubeSettings(getDb(), user, input);
+    return 'Saved.';
+  });
+}
+
+export async function savePodcastSettingsAction(input: unknown): Promise<StorageActionResult> {
+  return run(async (user) => {
+    await savePodcastSettings(getDb(), user, input);
+    return 'Saved. The feed shows the new details within a few minutes.';
   });
 }

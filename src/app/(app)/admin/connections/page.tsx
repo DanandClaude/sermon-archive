@@ -7,7 +7,12 @@ import { getBackupState } from '@/lib/storage/backup-status';
 import { listTargets, type TargetStatus } from '@/lib/storage/connections';
 import { latestVerification, listProblems, waitingToFile } from '@/lib/storage/filing';
 import { isRealMode } from '@/lib/storage/google-client';
+import { listChannels, type ChannelStatus } from '@/lib/distribution/channels';
+import { FEED_PATH } from '@/lib/distribution/podcast';
+import { getEnv } from '@/lib/env';
+import { getSettings } from '@/lib/settings';
 import { CheckButtons, ConnectButtons } from './ConnectionButtons';
+import { CopyLink, PodcastControls, YouTubeControls } from './DistributionForms';
 
 export const metadata = { title: 'Connections' };
 
@@ -47,6 +52,32 @@ function Pill({ tone, children }: { tone: 'ok' | 'none' | 'warn'; children: Reac
     >
       {children}
     </span>
+  );
+}
+
+function ChannelCard({
+  channel,
+  title,
+  children,
+}: {
+  channel: ChannelStatus;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-line bg-surface p-[22px]">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="m-0 text-base font-semibold">{title}</h3>
+        {channel.connected ? (
+          <Pill tone="ok">{channel.kind === 'podcast' ? 'On' : 'Connected'}</Pill>
+        ) : channel.disconnectedAt ? (
+          <Pill tone="warn">{channel.kind === 'podcast' ? 'Off' : 'Disconnected'}</Pill>
+        ) : (
+          <Pill tone="none">{channel.kind === 'podcast' ? 'Off' : 'Not connected'}</Pill>
+        )}
+      </div>
+      <div className="mt-3.5">{children}</div>
+    </div>
   );
 }
 
@@ -137,13 +168,18 @@ export default async function ConnectionsPage({
   const user = await requireCapability('connections.manage');
   const db = getDb();
   const sp = await searchParams;
-  const [targets, run, problems, waiting, backup] = await Promise.all([
+  const profile = await getSettings(db);
+  const [targets, run, problems, waiting, backup, channels] = await Promise.all([
     listTargets(db, user),
     latestVerification(db, user),
     listProblems(db, user),
     waitingToFile(db),
     getBackupState(db, user),
+    listChannels(db, user, profile),
   ]);
+  const youtube = channels.find((c) => c.kind === 'youtube')!;
+  const podcast = channels.find((c) => c.kind === 'podcast')!;
+  const feedUrl = `${getEnv().APP_URL}${FEED_PATH}`;
   const realMode = isRealMode();
   const bothConnected = targets.every((t) => t.connected);
   const checking = run?.state === 'queued' || run?.state === 'running';
@@ -162,7 +198,9 @@ export default async function ConnectionsPage({
           role="status"
           className="m-0 rounded-xl bg-spruce-tint px-4 py-3 text-sm font-semibold text-spruce"
         >
-          The {sp.connected === 'backup' ? 'backup' : 'shared drive'} is connected.
+          {sp.connected === 'youtube'
+            ? 'YouTube is connected.'
+            : `The ${sp.connected === 'backup' ? 'backup' : 'shared drive'} is connected.`}
         </p>
       ) : null}
       {sp.error ? (
@@ -280,9 +318,41 @@ export default async function ConnectionsPage({
         >
           Distribution
         </h2>
-        <div className="rounded-2xl border border-dashed border-line-strong bg-paper px-6 py-8 text-center text-muted">
-          YouTube and podcast publishing are added in a later step.
+        <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2">
+          <ChannelCard channel={youtube} title="YouTube">
+            <Row name="Account">{youtube.accountLabel ?? '—'}</Row>
+            <Row name="Published">{youtube.counts.published}</Row>
+            <Row name="Waiting or uploading">
+              {youtube.counts.queued + youtube.counts.publishing}
+            </Row>
+            <YouTubeControls
+              connected={youtube.connected}
+              realMode={realMode}
+              settings={youtube.youtube!}
+            />
+          </ChannelCard>
+          <ChannelCard channel={podcast} title="Podcast feed">
+            <Row name="Episodes">{podcast.counts.published}</Row>
+            <Row name="Artwork">
+              {podcast.connected ? (podcast.artworkReady ? 'Ready' : 'Being drawn') : '—'}
+            </Row>
+            {podcast.connected ? (
+              <div className="border-t border-chip py-2.5">
+                <p className="mb-2 mt-0 text-sm text-faint">
+                  Feed link, for Apple Podcasts, Spotify and other apps
+                </p>
+                <CopyLink url={feedUrl} />
+              </div>
+            ) : null}
+            <PodcastControls connected={podcast.connected} settings={podcast.podcast!} />
+          </ChannelCard>
         </div>
+        <ul className="mb-0 mt-3 flex list-disc flex-col gap-1 pl-5 text-[13px] text-muted">
+          <li>Only admins can publish, and only approved sermons.</li>
+          <li>Nothing is published automatically. You choose each sermon and where it goes.</li>
+          <li>Unpublishing makes a YouTube video private. Nothing is ever deleted from YouTube.</li>
+          <li>Podcast episodes are public to anyone with the feed link.</li>
+        </ul>
       </section>
     </>
   );

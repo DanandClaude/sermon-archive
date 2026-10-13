@@ -48,7 +48,7 @@ describe('Sidebar', () => {
       within(admin)
         .getAllByRole('link')
         .map((a) => a.textContent),
-    ).toEqual(['Connections', 'Team & access', 'Settings']);
+    ).toEqual(['Connections', 'Publishing', 'Team & access', 'Settings']);
   });
 
   it('gives viewers only the library', () => {
