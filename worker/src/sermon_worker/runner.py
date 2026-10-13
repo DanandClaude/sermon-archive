@@ -13,7 +13,7 @@ from pathlib import Path
 import psycopg
 from psycopg.types.json import Jsonb
 
-from . import pipeline, queue, verify
+from . import pipeline, publishing, queue, verify
 from .analysis import AnalysisError, Analyzer, run_analysis
 from .analyzers import make_analyzer
 from .clean import CleanConfig, clean_audio
@@ -78,14 +78,15 @@ class Runner:
         self.clean_config = clean_config or CleanConfig()
         self.heartbeat = heartbeat
         self.clock = clock
+        self.publisher = publishing.Publisher(conn, config, store)
 
     # -- one job -----------------------------------------------------------------------------
 
     def run_once(self) -> bool:
-        """Claims and runs one due job. Returns False when there was nothing to do."""
+        """Claims and runs one due job, publication or check. False when there was nothing to do."""
         job = queue.claim_job(self.conn, self.config.worker_id)
         if job is None:
-            return self._verify_once()
+            return self.publisher.run_once() or self._verify_once()
         if self.heartbeat:
             self.heartbeat.current_job = job.id
         try:
@@ -458,6 +459,13 @@ class Runner:
                     print(f"queued filing for {waiting} approved sermon(s)", flush=True)
                 verify.reap_stale_runs(self.conn)
                 verify.ensure_nightly(self.conn)
+                if publishing.reap_stale(self.conn, self.config.stale_job_seconds):
+                    print("took back an abandoned publication", flush=True)
+                try:
+                    if publishing.ensure_podcast_artwork(self.conn, self.store):
+                        print("drew the podcast cover art", flush=True)
+                except Exception as error:  # cover art must never stop the worker
+                    print(f"podcast cover art failed: {error}", flush=True)
                 last_reap = self.clock()
             if not self.run_once():
                 sleep(self.config.poll_seconds)
