@@ -38,7 +38,7 @@ Needs Node 24 (`.nvmrc`) and local Postgres 16. No Docker or Redis.
 
 - First-time setup: `npm install`, `createdb sermon_archive && createdb sermon_archive_test`, `cp .env.example .env.local` (set `APP_URL` to the port you run on), `npm run db:migrate`
 - First admin: `npm run admin:create -- --email you@example.org --name "Your Name"` prints a one-time sign-in link
-- Dev server: `npm run dev`. Sign-in emails are not sent in development; open `/dev/outbox` to click the link
+- Dev server: `npm run dev`, or double-click `Start Sermon Archive.command` in Finder to start Postgres, the dev server (port from `APP_URL`) and the worker together and open the browser. Sign-in emails are not sent in development; open `/dev/outbox` to click the link
 - Tests: `npm test` (rebuilds `sermon_archive_test` from the migrations and refuses any database not named `*_test`); `npm run test:watch`
 - Checks: `npm run lint`, `npm run typecheck`, `npm run format:check`; CI runs these plus `npm run build`
 - Accessibility: with `npm run dev` running and at least one user per role, `npm run a11y` signs in as each role and runs axe on every page (uses `/opt/pw-browsers/chromium`, or set `CHROMIUM_PATH`)
