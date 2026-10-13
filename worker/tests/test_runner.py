@@ -275,6 +275,17 @@ class TestTranscribeJob:
         make_runner(conn, config, store, model).run_once()
         assert model.calls[0]["prompt"].endswith("A sermon by Pastor Kim.")
 
+    def test_adds_the_admins_words_to_recognize(self, conn, config, store, cleaned):
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES "
+            "('recognition_words', '\"Shiloh Baptist\\nEbenezer\"'::jsonb)"
+        )
+        model = Scripted()
+        make_runner(conn, config, store, model).run_once()
+        assert model.calls[0]["prompt"].endswith(
+            "Words: Shiloh Baptist, Ebenezer. A sermon by Pastor Lee."
+        )
+
     def test_a_second_transcription_is_a_new_version_not_an_overwrite(
         self, conn, config, store, cleaned
     ):

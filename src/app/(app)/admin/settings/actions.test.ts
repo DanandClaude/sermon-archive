@@ -9,11 +9,15 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 const { saveSettings } = await import('./actions');
 
-const idle = { status: 'idle' as const, values: { churchName: '', defaultSpeaker: '' } };
+const idle = {
+  status: 'idle' as const,
+  values: { churchName: '', defaultSpeaker: '', recognitionWords: '' },
+};
 const form = (churchName: string) => {
   const data = new FormData();
   data.set('churchName', churchName);
   data.set('defaultSpeaker', '');
+  data.set('recognitionWords', '');
   return data;
 };
 
@@ -27,12 +31,17 @@ describe('saveSettings server action', () => {
     expect(updateSettings).not.toHaveBeenCalled();
   });
 
-  it('saves for a permitted user and returns the trimmed values', async () => {
+  it('saves for a permitted user and returns the values as saved', async () => {
     requireCapability.mockResolvedValue({ id: 'u1', role: 'admin' });
-    updateSettings.mockResolvedValue({ ok: true, changed: ['churchName'] });
+    const saved = { churchName: 'Grace', defaultSpeaker: '', recognitionWords: 'Selah' };
+    updateSettings.mockResolvedValue({ ok: true, changed: ['churchName'], saved });
     const state = await saveSettings(idle, form('  Grace  '));
-    expect(state.status).toBe('saved');
-    expect(state.values.churchName).toBe('Grace');
+    expect(updateSettings).toHaveBeenCalledWith(
+      {},
+      { id: 'u1', role: 'admin' },
+      { churchName: '  Grace  ', defaultSpeaker: '', recognitionWords: '' },
+    );
+    expect(state).toEqual({ status: 'saved', values: saved });
   });
 
   it('returns field errors without claiming success', async () => {

@@ -35,7 +35,7 @@ const db = openTestDb();
 afterAll(() => db.close());
 beforeEach(() => resetTables(db));
 
-const PROFILE = { churchName: 'Grace Church', defaultSpeaker: '' };
+const PROFILE = { churchName: 'Grace Church', defaultSpeaker: '', recognitionWords: '' };
 const PODCAST = {
   title: 'Grace Church Sermons',
   author: 'Grace Church',

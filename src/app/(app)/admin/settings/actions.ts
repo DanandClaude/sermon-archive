@@ -20,12 +20,10 @@ export async function saveSettings(
   const values = {
     churchName: String(formData.get('churchName') ?? ''),
     defaultSpeaker: String(formData.get('defaultSpeaker') ?? ''),
+    recognitionWords: String(formData.get('recognitionWords') ?? ''),
   };
   const result = await updateSettings(getDb(), user, values);
   if (!result.ok) return { status: 'error', values, errors: result.errors };
   revalidatePath('/', 'layout');
-  return {
-    status: 'saved',
-    values: { churchName: values.churchName.trim(), defaultSpeaker: values.defaultSpeaker.trim() },
-  };
+  return { status: 'saved', values: result.saved };
 }

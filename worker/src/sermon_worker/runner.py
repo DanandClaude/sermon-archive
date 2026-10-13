@@ -206,6 +206,16 @@ class Runner:
         value = default["value"] if default else None
         return value if isinstance(value, str) and value.strip() else None
 
+    def _recognition_words(self) -> list[str]:
+        """The admin's "Words to recognize" setting, stored as one word or phrase per line."""
+        row = self.conn.execute(
+            "SELECT value FROM settings WHERE key = 'recognition_words'"
+        ).fetchone()
+        value = row["value"] if row else None
+        if not isinstance(value, str):
+            return []
+        return [line.strip() for line in value.splitlines() if line.strip()]
+
     def _audio_asset(self, sermon_id: str) -> dict:
         wanted = (
             ("cleaned", "original") if self.config.transcribe_source == "cleaned" else ("original",)
@@ -222,7 +232,7 @@ class Runner:
 
     def _transcribe(self, job: Job) -> None:
         asset = self._audio_asset(job.sermon_id)
-        prompt = build_prompt(self._speaker(job.sermon_id))
+        prompt = build_prompt(self._speaker(job.sermon_id), self._recognition_words())
         with tempfile.TemporaryDirectory(prefix="sermon-transcribe-") as tmp:
             src = Path(tmp) / f"audio{Path(asset['storage_key']).suffix}"
             self.store.download(asset["storage_key"], src)
