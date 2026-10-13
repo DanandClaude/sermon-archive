@@ -39,6 +39,12 @@ const NAV: readonly NavSection[] = [
         icon: 'connections',
         capability: 'connections.manage',
       },
+      {
+        href: '/admin/publishing',
+        label: 'Publishing',
+        icon: 'publish',
+        capability: 'sermon.publish',
+      },
       { href: '/admin/team', label: 'Team & access', icon: 'team', capability: 'team.manage' },
       {
         href: '/admin/settings',

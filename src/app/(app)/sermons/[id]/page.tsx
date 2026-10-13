@@ -10,12 +10,15 @@ import { formatReference } from '@/lib/scripture/canon';
 import { isApprovedOrLater } from '@/lib/sermon-status';
 import { getSermonDetail, isUuid } from '@/lib/sermons/detail';
 import { readPeaks } from '@/lib/sermons/peaks';
+import { getPublishPreview } from '@/lib/distribution/publications';
+import { can } from '@/lib/permissions';
 import { getFilingSummary } from '@/lib/storage/filing';
 import { ApproveCard } from './ApproveCard';
 import { AutoRefresh } from '@/components/AutoRefresh';
 import { DetailsForm } from './DetailsForm';
 import { FilingCard } from './FilingCard';
 import { HeaderActions } from './HeaderActions';
+import { PublishingCard } from './PublishingCard';
 import { ReadOnlyDetails } from './ReadOnlyDetails';
 import { RetryButton } from './RetryButton';
 import { ReviewProvider } from './ReviewContext';
@@ -58,6 +61,13 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
 
   const approvedOrLater = isApprovedOrLater(detail.status);
   const filing = approvedOrLater ? await getFilingSummary(db, user, id) : null;
+  const publishing =
+    approvedOrLater && can(user.role, 'sermon.publish')
+      ? await getPublishPreview(db, user, id)
+      : null;
+  const publishingBusy = publishing?.channels.some((c) =>
+    ['queued', 'publishing', 'removing'].includes(c.publication?.state ?? ''),
+  );
   const recorded = formatRecordedOn(detail.recordedOn);
   const meta = [
     recorded ?? 'Date needed',
@@ -82,7 +92,10 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
 
   return (
     <ReviewProvider sermonId={detail.id}>
-      {processing || detail.status === 'analyzing' || detail.status === 'filing' ? (
+      {processing ||
+      detail.status === 'analyzing' ||
+      detail.status === 'filing' ||
+      publishingBusy ? (
         <AutoRefresh />
       ) : null}
       <PageHeader
@@ -223,6 +236,8 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
               isOwner={detail.contributorId === user.id}
             />
           ) : null}
+
+          {publishing ? <PublishingCard preview={publishing} /> : null}
 
           <section
             aria-labelledby="about"

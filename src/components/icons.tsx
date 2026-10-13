@@ -3,6 +3,7 @@ export type IconName =
   | 'library'
   | 'review'
   | 'connections'
+  | 'publish'
   | 'team'
   | 'settings'
   | 'lock'
@@ -37,6 +38,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M15 3v5" />
       <path d="M6 8h12v3a6 6 0 01-12 0z" />
       <path d="M12 17v4" />
+    </>
+  ),
+  publish: (
+    <>
+      <path d="M20.5 3.5L3.5 10.5l7 3 3 7z" />
+      <path d="M20.5 3.5l-10 10" />
     </>
   ),
   team: (
