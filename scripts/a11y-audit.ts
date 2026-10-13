@@ -31,6 +31,7 @@ const BY_ROLE: Record<Role, string[]> = {
     '/review',
     '/admin/connections',
     '/admin/publishing',
+    '/admin/health',
     '/admin/team',
     '/admin/settings',
   ],
