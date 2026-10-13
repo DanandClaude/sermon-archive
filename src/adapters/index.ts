@@ -1,5 +1,4 @@
 import { getEnv } from '@/lib/env';
-import { FakeDistributionChannel } from './distribution/fake';
 import { FakeMailer } from './mail/fake';
 import { SmtpMailer } from './mail/smtp';
 import { join } from 'node:path';
@@ -7,7 +6,6 @@ import { FakeUploadStore } from './uploads/fake';
 import { S3UploadStore } from './uploads/s3';
 import type { UploadStore } from './uploads/types';
 import type { Mailer } from './mail/types';
-import type { ChannelKind, DistributionChannel } from './distribution/types';
 import { resolveAdapterMode } from './mode';
 import { FakeStorageProvider } from './storage/fake';
 import type { StorageProvider } from './storage/types';
@@ -17,7 +15,6 @@ export type StorageRole = 'shared' | 'backup';
 // One instance per process (and per dev hot reload) so fakes keep their state.
 const globalForAdapters = globalThis as unknown as {
   __storage?: Map<StorageRole, StorageProvider>;
-  __channels?: Map<ChannelKind, DistributionChannel>;
   __mailer?: Mailer;
   __uploadStore?: UploadStore;
 };
@@ -34,13 +31,6 @@ export function getStorageProvider(role: StorageRole): StorageProvider {
   const map = (globalForAdapters.__storage ??= new Map());
   if (!map.has(role)) map.set(role, new FakeStorageProvider());
   return map.get(role)!;
-}
-
-export function getDistributionChannel(kind: ChannelKind): DistributionChannel {
-  assertFakeMode();
-  const map = (globalForAdapters.__channels ??= new Map());
-  if (!map.has(kind)) map.set(kind, new FakeDistributionChannel(kind));
-  return map.get(kind)!;
 }
 
 export function getMailer(): Mailer {
