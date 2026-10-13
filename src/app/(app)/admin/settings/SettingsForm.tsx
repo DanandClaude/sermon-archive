@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import type { AppSettings } from '@/lib/settings';
+import { MAX_RECOGNITION_WORDS, type AppSettings } from '@/lib/settings';
 import { saveSettings, type SettingsFormState } from './actions';
 
 function Field({
@@ -10,28 +10,41 @@ function Field({
   hint,
   error,
   defaultValue,
+  multiline = false,
 }: {
   id: keyof AppSettings;
   label: string;
   hint: string;
   error?: string;
   defaultValue: string;
+  multiline?: boolean;
 }) {
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
+  const control = {
+    id,
+    name: id,
+    defaultValue,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? `${hintId} ${errorId}` : hintId,
+  };
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-[13px] font-semibold">
         {label}
       </label>
-      <input
-        id={id}
-        name={id}
-        defaultValue={defaultValue}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${hintId} ${errorId}` : hintId}
-        className="box-border h-11 w-full rounded-[10px] border border-line-strong bg-surface px-3.5 text-[15px] text-ink"
-      />
+      {multiline ? (
+        <textarea
+          {...control}
+          rows={6}
+          className="box-border w-full rounded-[10px] border border-line-strong bg-surface px-3.5 py-2.5 text-[15px] leading-relaxed text-ink"
+        />
+      ) : (
+        <input
+          {...control}
+          className="box-border h-11 w-full rounded-[10px] border border-line-strong bg-surface px-3.5 text-[15px] text-ink"
+        />
+      )}
       <p id={hintId} className="mt-1.5 text-[13px] text-muted">
         {hint}
       </p>
@@ -69,6 +82,14 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
         hint="Suggested as the speaker when you upload tapes. Each sermon can have a different speaker."
         error={state.errors?.defaultSpeaker}
         defaultValue={state.values.defaultSpeaker}
+      />
+      <Field
+        id="recognitionWords"
+        label="Words to recognize"
+        hint={`One per line: names, places or words the transcription keeps getting wrong, spelled the way you want them. Up to ${MAX_RECOGNITION_WORDS}. Used for tapes transcribed after you save.`}
+        error={state.errors?.recognitionWords}
+        defaultValue={state.values.recognitionWords}
+        multiline
       />
       <div className="flex items-center gap-4">
         <button

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -112,13 +112,17 @@ class Transcriber(Protocol):
     ) -> TranscriptResult: ...
 
 
-def build_prompt(speaker: str | None) -> str:
-    """Primes the model with scripture vocabulary and the speaker's name.
+def build_prompt(speaker: str | None, words: Sequence[str] = ()) -> str:
+    """Primes the model with scripture vocabulary, the church's own words and the speaker's name.
 
-    Whisper keeps only the last ~224 tokens of a prompt, so the speaker goes last.
+    Whisper keeps only the last ~224 tokens of a prompt, so the admin's words come after the
+    book names (which are the first to be cut) and the speaker goes last.
     """
     books = ", ".join(bible_books())
     prompt = f"Books of the Bible: {books}."
+    extra = [w.strip() for w in words if w and w.strip()]
+    if extra:
+        prompt += f" Words: {', '.join(extra)}."
     if speaker and speaker.strip():
         prompt += f" A sermon by {speaker.strip()}."
     return prompt

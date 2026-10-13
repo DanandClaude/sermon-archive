@@ -242,6 +242,12 @@ class TestPrompt:
         assert "sermon by" not in build_prompt("   ")
         assert len(build_prompt("A" * 30)) < 1100
 
+    def test_puts_the_churchs_words_after_the_books_and_before_the_speaker(self):
+        prompt = build_prompt("Pastor Lee", ["Shiloh Baptist", "  ", "Ebenezer"])
+        assert prompt.endswith(" Words: Shiloh Baptist, Ebenezer. A sermon by Pastor Lee.")
+        assert prompt.index("Revelation") < prompt.index("Shiloh")
+        assert "Words:" not in build_prompt("Pastor Lee", [])
+
 
 def _words(*items):
     return [Word(w, s, e, p) for w, s, e, p in items]

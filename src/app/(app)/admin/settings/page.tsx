@@ -13,7 +13,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="Your church’s name and the speaker suggested for new uploads."
+        description="Your church’s name, the speaker suggested for new uploads, and words to help transcription."
         aside={<AdminOnlyBadge />}
       />
       <SettingsForm initial={settings} />
