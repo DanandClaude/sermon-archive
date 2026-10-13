@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   index,
   integer,
@@ -21,6 +22,8 @@ import { CHANNEL_KINDS, PUBLICATION_STATES, VISIBILITIES } from '../lib/distribu
 import { FAILED_STAGES, JOB_STATES, JOB_TYPES } from '../lib/job-types';
 import { ROLES } from '../lib/roles';
 import { SERMON_STATUSES } from '../lib/sermon-status';
+
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
 
 export const userRole = pgEnum('user_role', ROLES);
 
@@ -277,9 +280,16 @@ export const transcripts = pgTable(
     segments: jsonb('segments').notNull(),
     /** [[segmentIndex, wordIndex], ...] for words below the confidence threshold. */
     lowConfidence: jsonb('low_confidence').notNull(),
+    /** Kept by Postgres from full_text, for the Library's transcript search. Never written. */
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', full_text)`,
+    ),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('transcripts_sermon_version_idx').on(t.sermonId, t.version)],
+  (t) => [
+    uniqueIndex('transcripts_sermon_version_idx').on(t.sermonId, t.version),
+    index('transcripts_search_idx').using('gin', t.searchVector),
+  ],
 );
 
 /** One row per worker, refreshed every few seconds, so the app can say when nothing is processing. */

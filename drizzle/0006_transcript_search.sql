@@ -1,0 +1,2 @@
+ALTER TABLE "transcripts" ADD COLUMN "search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', full_text)) STORED;--> statement-breakpoint
+CREATE INDEX "transcripts_search_idx" ON "transcripts" USING gin ("search_vector");
