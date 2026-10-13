@@ -9,11 +9,21 @@ import { getEnv } from '@/lib/env';
 import { RateLimiter } from '@/lib/rate-limit';
 import { getSettings } from '@/lib/settings';
 import { sessionCookieName } from './cookie';
-import { consumeLoginToken, requestSignIn } from './login';
+import { consumeLoginToken, hasNoUsers, requestSignIn } from './login';
 import { safeNextPath } from './redirect';
 import { createSession, deleteSession } from './sessions';
 
-export type SignInState = { status: 'idle' | 'sent' | 'error'; email: string; error?: string };
+/**
+ * `hint` explains why no email will arrive without saying whether this address is on the team:
+ * `no_users` until the first admin exists, `dev_outbox` when mail only goes to /dev/outbox.
+ */
+export type SignInHint = 'no_users' | 'dev_outbox';
+export type SignInState = {
+  status: 'idle' | 'sent' | 'error';
+  email: string;
+  error?: string;
+  hint?: SignInHint;
+};
 
 // Per process; fine for one deployment. Stops one address hammering the form.
 const requestLimiter = new RateLimiter(10, 10 * 60 * 1000);
@@ -35,6 +45,8 @@ export async function requestLink(
   const { churchName } = await getSettings(db);
   // Same answer whether or not the address is on the team.
   await requestSignIn(db, getMailer(), { email, appUrl: getEnv().APP_URL, churchName, next });
+  if (await hasNoUsers(db)) return { status: 'sent', email, hint: 'no_users' };
+  if (process.env.NODE_ENV === 'development') return { status: 'sent', email, hint: 'dev_outbox' };
   return { status: 'sent', email };
 }
 

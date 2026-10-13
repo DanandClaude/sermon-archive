@@ -29,6 +29,12 @@ export async function findActiveUserByEmail(db: Db, email: string): Promise<User
   return user;
 }
 
+/** True until the first admin is created, so the sign-in page can say what to do instead of waiting for an email. */
+export async function hasNoUsers(db: Db): Promise<boolean> {
+  const [row] = await db.select({ id: users.id }).from(users).limit(1);
+  return !row;
+}
+
 /** Returns the raw token. Only its hash is stored. */
 export async function issueLoginToken(
   db: Db,

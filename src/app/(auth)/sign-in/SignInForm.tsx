@@ -19,9 +19,37 @@ export function SignInForm({ next, expired }: { next: string; expired: boolean }
           If <strong className="text-ink">{state.email}</strong> is on the team, a sign-in link is
           on its way. It works once and expires in 15 minutes.
         </p>
-        <p className="mt-4 text-[13px] text-muted">
-          Nothing arrived? Check your spam folder, or ask an admin at your church to add you.
-        </p>
+        {state.hint === 'no_users' ? (
+          <div
+            role="status"
+            className="mt-4 rounded-xl bg-amber-tint p-4 text-[14px] text-amber-text"
+          >
+            <p className="m-0 font-semibold">No one has been set up yet.</p>
+            <p className="mb-0 mt-1.5">
+              Whoever installed the archive needs to create the first admin. On the computer running
+              it, use the <code className="font-mono">admin:create</code> command in the install
+              guide. It prints a sign-in link straight away.
+            </p>
+          </div>
+        ) : state.hint === 'dev_outbox' ? (
+          <div
+            role="status"
+            className="mt-4 rounded-xl bg-amber-tint p-4 text-[14px] text-amber-text"
+          >
+            <p className="m-0 font-semibold">This copy doesn’t send real email.</p>
+            <p className="mb-0 mt-1.5">
+              It’s running in development mode, so sign-in links go to the{' '}
+              <a href="/dev/outbox" className="font-semibold underline">
+                dev outbox
+              </a>{' '}
+              instead.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-4 text-[13px] text-muted">
+            Nothing arrived? Check your spam folder, or ask an admin at your church to add you.
+          </p>
+        )}
       </div>
     );
   }
