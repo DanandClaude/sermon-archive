@@ -123,6 +123,18 @@ describe('online library', () => {
     expect(library?.total).toBe(1);
   });
 
+  it('never plays a recording that was set aside', async () => {
+    const admin = await setup();
+    const s = await sermon(admin);
+    const pub = await publish(admin, s.id);
+    await db
+      .update(audioAssets)
+      .set({ setAsideAt: new Date() })
+      .where(eq(audioAssets.sermonId, s.id));
+    expect(await findLibraryAudio(db, pub.id)).toBeNull();
+    expect(await getLibrarySermon(db, pub.id)).toBeNull();
+  });
+
   it('drops a sermon the moment it is unpublished, and brings it back if published again', async () => {
     const admin = await setup();
     const s = await sermon(admin);

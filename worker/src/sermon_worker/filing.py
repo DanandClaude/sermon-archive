@@ -110,7 +110,7 @@ class Filer:
         assets = {
             kind: c.execute(
                 "SELECT storage_key, mime FROM audio_assets WHERE sermon_id = %s AND kind = %s::audio_kind "
-                "ORDER BY created_at DESC LIMIT 1",
+                "AND set_aside_at IS NULL ORDER BY created_at DESC LIMIT 1",
                 (sermon_id, kind),
             ).fetchone()
             for kind in ("original", "cleaned")

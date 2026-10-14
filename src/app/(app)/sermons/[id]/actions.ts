@@ -11,6 +11,7 @@ import {
   deleteScriptureRef,
   editTranscriptLine,
   editScriptureRef,
+  rejectAudio,
   requestRegenerate,
   ReviewError,
   saveSummary,
@@ -94,6 +95,14 @@ export async function deletePassageAction(sermonId: string, refId: string) {
 
 export async function approveAction(sermonId: string) {
   return run(sermonId, async (user) => approveSermon(getDb(), user, sermonId));
+}
+
+/** Sets the recording aside as incomplete or wrong; the sermon then waits for a full one. */
+export async function rejectAudioAction(sermonId: string, reason: string) {
+  return run(sermonId, async (user) => {
+    await rejectAudio(getDb(), user, sermonId, { reason });
+    return {};
+  });
 }
 
 /** Admins only: tries filing again once the Connections page has been fixed. */

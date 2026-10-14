@@ -1,5 +1,5 @@
 {
-  "id": "0fe9fb22-546b-43b3-9712-4828a0ca8a75",
+  "id": "3ab1067e-c5bc-4dc3-b95d-0f3d4cda6722",
   "prevId": "39c7e6f7-ae48-492e-82f0-0f0c28a9942f",
   "version": "7",
   "dialect": "postgresql",
@@ -163,6 +163,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "set_aside_at": {
+          "name": "set_aside_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -198,7 +204,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"audio_assets\".\"kind\" = 'original'",
+          "where": "\"audio_assets\".\"kind\" = 'original' and \"audio_assets\".\"set_aside_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1417,6 +1423,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "audio_rejected_reason": {
+          "name": "audio_rejected_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "contributor_id": {
           "name": "contributor_id",
           "type": "uuid",
@@ -2211,6 +2223,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "replaces_audio": {
+          "name": "replaces_audio",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "status": {
           "name": "status",
           "type": "upload_status",
@@ -2590,8 +2609,7 @@
       "schema": "public",
       "values": [
         "youtube",
-        "podcast",
-        "library"
+        "podcast"
       ]
     },
     "public.date_source": {
@@ -2654,6 +2672,7 @@
         "transcribing",
         "analyzing",
         "needs_review",
+        "needs_audio",
         "approved",
         "filing",
         "filed",

@@ -130,6 +130,8 @@ export const sermons = pgTable(
     /** Set with status `failed`: the stage to resume from when someone presses Retry. */
     failedStage: text('failed_stage'),
     lastError: text('last_error'),
+    /** Why a reviewer set the recording aside, shown while the sermon waits in `needs_audio`. */
+    audioRejectedReason: text('audio_rejected_reason'),
     contributorId: uuid('contributor_id')
       .notNull()
       .references(() => users.id),
@@ -175,13 +177,19 @@ export const audioAssets = pgTable(
     originalFilename: text('original_filename').notNull(),
     durationSec: integer('duration_sec'),
     peaksKey: text('peaks_key'),
+    /**
+     * Set when a reviewer rejects the recording (for example, the tape was cut short). The file is
+     * kept forever; set-aside audio is never processed, played, filed or published again.
+     */
+    setAsideAt: timestamp('set_aside_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('audio_assets_sermon_idx').on(t.sermonId),
+    // One current original per sermon. Rejected originals stay, set aside.
     uniqueIndex('audio_assets_one_original_idx')
       .on(t.sermonId)
-      .where(sql`${t.kind} = 'original'`),
+      .where(sql`${t.kind} = 'original' and ${t.setAsideAt} is null`),
   ],
 );
 
@@ -207,6 +215,8 @@ export const uploads = pgTable(
     /** Hash of user + name + size + last-modified, so re-adding the same file resumes it. */
     fingerprint: text('fingerprint').notNull(),
     partSize: integer('part_size').notNull(),
+    /** True for a full recording uploaded in place of one a reviewer rejected. */
+    replacesAudio: boolean('replaces_audio').notNull().default(false),
     status: uploadStatus('status').notNull().default('in_progress'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),

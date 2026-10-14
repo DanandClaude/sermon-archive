@@ -18,7 +18,13 @@ export type UploadableFile = {
   slice(start: number, end: number): { size: number };
 };
 
-export type UploadItem = { id: string; file: UploadableFile; details: UploadDetails };
+export type UploadItem = {
+  id: string;
+  file: UploadableFile;
+  details: UploadDetails;
+  /** The sermon this file is the full recording for, after a reviewer rejected its audio. */
+  replacesSermonId?: string;
+};
 
 export type ItemStatus =
   'waiting' | 'starting' | 'uploading' | 'finishing' | 'done' | 'error' | 'cancelled';
@@ -190,6 +196,7 @@ export class UploadManager {
         sizeBytes: file.size,
         lastModified: file.lastModified,
         details: item.details,
+        replacesSermonId: item.replacesSermonId,
       })) as unknown as StartResponse;
       emit({
         uploadId: start.uploadId,

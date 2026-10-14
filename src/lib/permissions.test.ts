@@ -5,6 +5,8 @@ import {
   canApproveSermon,
   canEditSermon,
   canPublishSermon,
+  canRejectAudio,
+  canReplaceAudio,
   canRetrySermon,
   canViewSermon,
   can,
@@ -169,6 +171,44 @@ describe('canRetrySermon', () => {
         { ...me, role: 'admin' },
         { contributorId: 'me', status: 'failed', deleted: true },
       ),
+    ).toBe(false);
+  });
+});
+
+describe('canRejectAudio and canReplaceAudio', () => {
+  const REJECTABLE = ['needs_review', 'failed'];
+
+  it.each(SERMON_STATUSES)('rejecting follows ownership and status (%s)', (status) => {
+    const open = REJECTABLE.includes(status);
+    expect(canRejectAudio({ ...me, role: 'contributor' }, { contributorId: 'me', status })).toBe(
+      open,
+    );
+    expect(canRejectAudio({ ...me, role: 'admin' }, { contributorId: other, status })).toBe(open);
+    expect(canRejectAudio({ ...me, role: 'contributor' }, { contributorId: other, status })).toBe(
+      false,
+    );
+    expect(canRejectAudio({ ...me, role: 'viewer' }, { contributorId: 'me', status })).toBe(false);
+  });
+
+  it.each(SERMON_STATUSES)('replacing is only for a rejected recording (%s)', (status) => {
+    const open = status === 'needs_audio';
+    expect(canReplaceAudio({ ...me, role: 'contributor' }, { contributorId: 'me', status })).toBe(
+      open,
+    );
+    expect(canReplaceAudio({ ...me, role: 'admin' }, { contributorId: other, status })).toBe(open);
+    expect(canReplaceAudio({ ...me, role: 'contributor' }, { contributorId: other, status })).toBe(
+      false,
+    );
+    expect(canReplaceAudio({ ...me, role: 'viewer' }, { contributorId: 'me', status })).toBe(false);
+  });
+
+  it('refuses a deleted sermon', () => {
+    const admin = { ...me, role: 'admin' as const };
+    expect(
+      canRejectAudio(admin, { contributorId: 'me', status: 'needs_review', deleted: true }),
+    ).toBe(false);
+    expect(
+      canReplaceAudio(admin, { contributorId: 'me', status: 'needs_audio', deleted: true }),
     ).toBe(false);
   });
 });

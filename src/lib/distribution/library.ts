@@ -89,7 +89,13 @@ async function liveEntries(db: Db, publicationId?: string): Promise<LibraryEntry
     db
       .selectDistinct({ sermonId: audioAssets.sermonId })
       .from(audioAssets)
-      .where(and(inArray(audioAssets.sermonId, ids), eq(audioAssets.kind, 'cleaned'))),
+      .where(
+        and(
+          inArray(audioAssets.sermonId, ids),
+          eq(audioAssets.kind, 'cleaned'),
+          isNull(audioAssets.setAsideAt),
+        ),
+      ),
     db
       .select()
       .from(scriptureRefs)
@@ -211,7 +217,13 @@ export async function findLibraryAudio(db: Db, publicationId: string): Promise<s
     .select({ key: audioAssets.storageKey })
     .from(audioAssets)
     .innerJoin(publications, eq(publications.sermonId, audioAssets.sermonId))
-    .where(and(eq(publications.id, publicationId), eq(audioAssets.kind, 'cleaned')))
+    .where(
+      and(
+        eq(publications.id, publicationId),
+        eq(audioAssets.kind, 'cleaned'),
+        isNull(audioAssets.setAsideAt),
+      ),
+    )
     .orderBy(desc(audioAssets.createdAt))
     .limit(1);
   return audio?.key ?? null;

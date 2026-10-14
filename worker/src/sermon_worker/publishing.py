@@ -335,7 +335,7 @@ class Publisher:
             return out
         audio = self.conn.execute(
             "SELECT storage_key FROM audio_assets WHERE sermon_id = %s AND kind = 'cleaned' "
-            "ORDER BY created_at DESC LIMIT 1",
+            "AND set_aside_at IS NULL ORDER BY created_at DESC LIMIT 1",
             (pub["sermon_id"],),
         ).fetchone()
         if audio is None:

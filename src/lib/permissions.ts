@@ -83,3 +83,23 @@ export function canPublishSermon(actor: Actor, sermon: SermonFacts): boolean {
   if (sermon.deleted || !can(actor.role, 'sermon.publish')) return false;
   return isApprovedOrLater(sermon.status);
 }
+
+/**
+ * Setting a recording aside because it is incomplete or wrong. The same people who review a
+ * draft (its uploader and admins) can do it, before approval only, while it waits for review or
+ * after processing failed. The file is kept; the sermon waits for a full recording.
+ */
+export function canRejectAudio(actor: Actor, sermon: SermonFacts): boolean {
+  if (sermon.deleted || (sermon.status !== 'needs_review' && sermon.status !== 'failed')) {
+    return false;
+  }
+  if (actor.role === 'admin') return true;
+  return actor.role === 'contributor' && sermon.contributorId === actor.id;
+}
+
+/** Uploading the full recording for a sermon whose audio was rejected: its uploader and admins. */
+export function canReplaceAudio(actor: Actor, sermon: SermonFacts): boolean {
+  if (sermon.deleted || sermon.status !== 'needs_audio') return false;
+  if (actor.role === 'admin') return true;
+  return actor.role === 'contributor' && sermon.contributorId === actor.id;
+}
