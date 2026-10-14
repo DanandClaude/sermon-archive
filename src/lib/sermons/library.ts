@@ -16,6 +16,7 @@ const IN_PROGRESS: SermonStatus[] = [
   'cleaning',
   'transcribing',
   'analyzing',
+  'needs_audio',
   'failed',
 ];
 const APPROVED = SERMON_STATUSES.filter(isApprovedOrLater);
@@ -86,7 +87,7 @@ export async function listLibrary(
     .select({ total: count() })
     .from(sermons)
     .innerJoin(users, eq(users.id, sermons.contributorId))
-    .leftJoin(uploads, eq(uploads.sermonId, sermons.id))
+    .leftJoin(uploads, and(eq(uploads.sermonId, sermons.id), eq(uploads.replacesAudio, false)))
     .where(where);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -108,7 +109,7 @@ export async function listLibrary(
     })
     .from(sermons)
     .innerJoin(users, eq(users.id, sermons.contributorId))
-    .leftJoin(uploads, eq(uploads.sermonId, sermons.id))
+    .leftJoin(uploads, and(eq(uploads.sermonId, sermons.id), eq(uploads.replacesAudio, false)))
     .where(where)
     .orderBy(sql`${sermons.recordedOn} desc nulls last`, desc(sermons.createdAt), desc(sermons.id))
     .limit(PAGE_SIZE)

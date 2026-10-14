@@ -7,6 +7,7 @@
     "transcribing",
     "analyzing",
     "needs_review",
+    "needs_audio",
     "approved",
     "filing",
     "filed",
@@ -18,11 +19,12 @@
     "cleaning": ["transcribing", "failed"],
     "transcribing": ["analyzing", "failed"],
     "analyzing": ["needs_review", "failed"],
-    "needs_review": ["approved", "analyzing"],
+    "needs_review": ["approved", "analyzing", "needs_audio"],
+    "needs_audio": ["uploaded"],
     "approved": ["filing"],
     "filing": ["filed", "approved"],
     "filed": [],
-    "failed": ["cleaning", "transcribing", "analyzing"]
+    "failed": ["cleaning", "transcribing", "analyzing", "needs_audio"]
   },
   "jobs": {
     "clean": {

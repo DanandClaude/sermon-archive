@@ -11,7 +11,7 @@ import type { Db } from '@/db/client';
 import { isUniqueViolation } from '@/db/errors';
 import { audioAssets, auditLog, jobs, sermons, uploads, type Upload } from '@/db/schema';
 import { enqueueJob } from '@/lib/jobs';
-import { assertCan, type Actor } from '@/lib/permissions';
+import { assertCan, canReplaceAudio, canViewSermon, type Actor } from '@/lib/permissions';
 import { transitionSermon } from '@/lib/sermons/transition';
 import { MAX_FILE_BYTES } from './limits';
 import { parseLabelDate } from './label';
@@ -21,7 +21,7 @@ export { MAX_FILE_BYTES };
 export const DEFAULT_PART_BYTES = 8 * 1024 * 1024;
 export const PART_URL_TTL_SEC = 15 * 60;
 
-export type UploadErrorCode = 'invalid' | 'not_found' | 'incomplete' | 'not_audio';
+export type UploadErrorCode = 'invalid' | 'not_found' | 'incomplete' | 'not_audio' | 'conflict';
 
 export class UploadError extends Error {
   constructor(
@@ -68,6 +68,8 @@ const startSchema = z.object({
         .transform((v) => v ?? null),
     })
     .optional(),
+  /** Set when this is the full recording for a sermon whose audio a reviewer rejected. */
+  replacesSermonId: z.uuid().optional(),
 });
 
 export function fingerprintOf(
@@ -122,10 +124,19 @@ async function describe(
   };
 }
 
+/**
+ * Drops an upload that will not finish. A new sermon made for it is hidden with it; a sermon
+ * that was waiting for a replacement recording just keeps waiting.
+ */
 async function discard(db: Db, upload: Upload, actorId: string, action: string) {
   await db.transaction(async (tx) => {
     await tx.update(uploads).set({ status: 'aborted' }).where(eq(uploads.id, upload.id));
-    await tx.update(sermons).set({ deletedAt: new Date() }).where(eq(sermons.id, upload.sermonId));
+    if (!upload.replacesAudio) {
+      await tx
+        .update(sermons)
+        .set({ deletedAt: new Date() })
+        .where(eq(sermons.id, upload.sermonId));
+    }
     await tx.insert(auditLog).values({
       actorId,
       action,
@@ -134,6 +145,23 @@ async function discard(db: Db, upload: Upload, actorId: string, action: string) 
       diff: { filename: upload.filename },
     });
   });
+}
+
+/** The sermon a replacement recording is for, checked: it must be waiting for one. */
+async function replaceableSermon(db: Db, actor: Actor, sermonId: string): Promise<string> {
+  const [sermon] = await db.select().from(sermons).where(eq(sermons.id, sermonId));
+  const facts = sermon && {
+    contributorId: sermon.contributorId,
+    status: sermon.status,
+    deleted: sermon.deletedAt !== null,
+  };
+  if (!facts || !canViewSermon(actor, facts)) {
+    throw new UploadError('not_found', 'Sermon not found.');
+  }
+  if (!canReplaceAudio(actor, facts)) {
+    throw new UploadError('conflict', 'This sermon isn’t waiting for a new recording.');
+  }
+  return sermon.id;
 }
 
 /**
@@ -154,7 +182,7 @@ export async function startUpload(
     }
     throw new UploadError('invalid', 'Check the highlighted fields.', fieldErrors);
   }
-  const { filename, sizeBytes, lastModified, details } = parsed.data;
+  const { filename, sizeBytes, lastModified, details, replacesSermonId } = parsed.data;
 
   const ext = extensionOf(filename);
   const format = EXTENSION_FORMAT[ext];
@@ -171,7 +199,14 @@ export async function startUpload(
     recordedOn = date.iso;
   }
 
-  const fingerprint = fingerprintOf(actor.id, filename, sizeBytes, lastModified);
+  // A replacement recording goes into an existing sermon instead of starting a new one.
+  const target = replacesSermonId ? await replaceableSermon(db, actor, replacesSermonId) : null;
+  const fingerprint = fingerprintOf(
+    actor.id,
+    target ? `${target}/${filename}` : filename,
+    sizeBytes,
+    lastModified,
+  );
   const found = await existingUpload(db, actor.id, fingerprint);
   if (found) {
     try {
@@ -183,29 +218,37 @@ export async function startUpload(
     }
   }
 
-  const sermonId = crypto.randomUUID();
-  const storageKey = `originals/${sermonId}/original.${ext}`;
+  const uploadRowId = crypto.randomUUID();
+  const sermonId = target ?? crypto.randomUUID();
+  // Each recording gets its own key, so a replacement never overwrites the rejected original.
+  const storageKey = target
+    ? `originals/${sermonId}/original-${uploadRowId}.${ext}`
+    : `originals/${sermonId}/original.${ext}`;
   const { uploadId: storeUploadId } = await store.createMultipartUpload({
     key: storageKey,
     contentType: FORMAT_MIME[format],
   });
   try {
     const upload = await db.transaction(async (tx) => {
-      await tx.insert(sermons).values({
-        id: sermonId,
-        status: 'uploading',
-        contributorId: actor.id,
-        recordedOn,
-        dateSource: recordedOn ? 'label' : null,
-        speaker: details?.speaker ?? null,
-        batchLabel: details?.batchLabel ?? null,
-        side: details?.side ?? null,
-        labelScripture: details?.labelScripture ?? null,
-      });
+      if (!target) {
+        await tx.insert(sermons).values({
+          id: sermonId,
+          status: 'uploading',
+          contributorId: actor.id,
+          recordedOn,
+          dateSource: recordedOn ? 'label' : null,
+          speaker: details?.speaker ?? null,
+          batchLabel: details?.batchLabel ?? null,
+          side: details?.side ?? null,
+          labelScripture: details?.labelScripture ?? null,
+        });
+      }
       const [row] = await tx
         .insert(uploads)
         .values({
+          id: uploadRowId,
           sermonId,
+          replacesAudio: target !== null,
           userId: actor.id,
           storageKey,
           storeUploadId,
@@ -334,6 +377,7 @@ export async function completeUpload(
     );
   }
   const sha256 = await sha256Of(await store.read(upload.storageKey));
+  if (upload.replacesAudio) return finishReplacement(db, actor, upload, sha256);
 
   await db.transaction(async (tx) => {
     await tx.insert(audioAssets).values({
@@ -362,6 +406,53 @@ export async function completeUpload(
       diff: { filename: upload.filename, bytes: upload.sizeBytes, sha256 },
     });
   });
+  return { sermonId: upload.sermonId, status: 'uploaded' };
+}
+
+/**
+ * Records the full recording for a sermon whose audio was rejected and starts processing again.
+ * Everything a person entered (date, title, passages they added) is kept.
+ */
+async function finishReplacement(
+  db: Db,
+  actor: Actor,
+  upload: Upload,
+  sha256: string,
+): Promise<{ sermonId: string; status: 'uploaded' }> {
+  const replaced = await db.transaction(async (tx) => {
+    const moved = await transitionSermon(tx, upload.sermonId, 'needs_audio', 'uploaded', {
+      audioRejectedReason: null,
+      durationSec: null,
+    });
+    if (!moved) return false;
+    await tx.insert(audioAssets).values({
+      sermonId: upload.sermonId,
+      kind: 'original',
+      storageKey: upload.storageKey,
+      sha256,
+      bytes: upload.sizeBytes,
+      mime: upload.mime,
+      originalFilename: upload.filename,
+    });
+    await tx
+      .update(uploads)
+      .set({ status: 'completed', completedAt: new Date() })
+      .where(eq(uploads.id, upload.id));
+    await enqueueJob(tx, upload.sermonId, 'clean');
+    await tx.insert(auditLog).values({
+      actorId: actor.id,
+      action: 'sermon.audio_replaced',
+      entity: 'sermon',
+      entityId: upload.sermonId,
+      diff: { filename: upload.filename, bytes: upload.sizeBytes, sha256 },
+    });
+    return true;
+  });
+  if (!replaced) {
+    // Someone else's replacement finished first. This file stays in storage, unused.
+    await discard(db, upload, actor.id, 'sermon.replacement_not_needed');
+    throw new UploadError('conflict', 'This sermon already has its new recording.');
+  }
   return { sermonId: upload.sermonId, status: 'uploaded' };
 }
 
@@ -412,7 +503,7 @@ export async function listQueue(db: Db, actor: Actor, limit = 50): Promise<Queue
       lastError: sermons.lastError,
     })
     .from(sermons)
-    .leftJoin(uploads, eq(uploads.sermonId, sermons.id))
+    .leftJoin(uploads, and(eq(uploads.sermonId, sermons.id), eq(uploads.replacesAudio, false)))
     .where(
       and(
         eq(sermons.contributorId, actor.id),

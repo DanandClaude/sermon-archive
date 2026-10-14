@@ -3,7 +3,9 @@ import { z } from 'zod';
 import type { Db } from '@/db/client';
 import { isUniqueViolation } from '@/db/errors';
 import {
+  audioAssets,
   auditLog,
+  jobs,
   scriptureRefs,
   sermonTags,
   sermons,
@@ -18,6 +20,7 @@ import {
   assertCan,
   canApproveSermon,
   canEditSermon,
+  canRejectAudio,
   canViewSermon,
   type Actor,
 } from '@/lib/permissions';
@@ -756,4 +759,78 @@ export async function approveSermon(
       throw error;
     }
   }
+}
+
+// -- rejecting the recording -----------------------------------------------------------------
+
+const rejectSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'Say what is wrong with the recording.')
+    .max(300, 'Keep it under 300 characters.'),
+});
+
+/**
+ * Sets a sermon's recording aside because it is incomplete or wrong, and asks for the full one.
+ * Nothing is deleted: the rejected file stays in storage, marked as set aside, and the details a
+ * person entered are kept for when the full recording arrives.
+ */
+export async function rejectAudio(
+  db: Db,
+  actor: Actor,
+  sermonId: string,
+  input: unknown,
+): Promise<void> {
+  assertCan(actor.role, 'sermon.review');
+  const parsed = rejectSchema.safeParse(input);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? 'Check the reason.';
+    throw new ReviewError('invalid', message, { reason: message });
+  }
+  const { reason } = parsed.data;
+
+  await db.transaction(async (tx) => {
+    const [sermon] = await tx.select().from(sermons).where(eq(sermons.id, sermonId)).for('update');
+    const facts = sermon && {
+      contributorId: sermon.contributorId,
+      status: sermon.status,
+      deleted: sermon.deletedAt !== null,
+    };
+    if (!sermon || !facts || !canViewSermon(actor, facts)) {
+      throw new ReviewError('not_found', 'Sermon not found.');
+    }
+    if (!canRejectAudio(actor, { ...facts, status: 'needs_review' })) {
+      throw new ReviewError('forbidden', 'You can’t change this sermon.');
+    }
+    if (sermon.status !== 'needs_review' && sermon.status !== 'failed') {
+      throw new ReviewError(
+        'conflict',
+        'Only a recording waiting for review, or one that failed to process, can be rejected.',
+      );
+    }
+    const moved = await transitionSermon(tx, sermonId, sermon.status, 'needs_audio', {
+      audioRejectedReason: reason,
+      durationSec: null,
+      failedStage: null,
+      lastError: null,
+    });
+    if (!moved)
+      throw new ReviewError('conflict', 'This sermon just changed. Reload and try again.');
+    const setAside = await tx
+      .update(audioAssets)
+      .set({ setAsideAt: new Date() })
+      .where(and(eq(audioAssets.sermonId, sermonId), isNull(audioAssets.setAsideAt)))
+      .returning({ storageKey: audioAssets.storageKey });
+    // Nothing should be waiting, but a stray queued job must not process the rejected audio.
+    await tx
+      .update(jobs)
+      .set({ state: 'canceled', finishedAt: new Date() })
+      .where(and(eq(jobs.sermonId, sermonId), eq(jobs.state, 'queued')));
+    await audit(tx, actor, 'sermon.audio_rejected', sermonId, {
+      reason,
+      from: sermon.status,
+      setAside: setAside.map((a) => a.storageKey),
+    });
+  });
 }

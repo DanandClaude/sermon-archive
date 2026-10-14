@@ -20,6 +20,7 @@ import { FilingCard } from './FilingCard';
 import { HeaderActions } from './HeaderActions';
 import { PublishingCard } from './PublishingCard';
 import { ReadOnlyDetails } from './ReadOnlyDetails';
+import { ReplaceAudioCard } from './ReplaceAudioCard';
 import { RetryButton } from './RetryButton';
 import { ReviewProvider } from './ReviewContext';
 import { ScripturePanel } from './ScripturePanel';
@@ -104,12 +105,20 @@ export default async function SermonPage({ params }: { params: Promise<{ id: str
         aside={
           <div className="flex flex-wrap items-start justify-end gap-3">
             <StatusChip status={detail.status} />
-            {detail.canEdit ? <HeaderActions canApprove={detail.canApprove} /> : null}
+            {detail.canEdit || detail.canRejectAudio ? (
+              <HeaderActions canApprove={detail.canApprove} canReject={detail.canRejectAudio} />
+            ) : null}
           </div>
         }
       />
 
-      {detail.status === 'failed' ? (
+      {detail.status === 'needs_audio' ? (
+        <ReplaceAudioCard
+          sermonId={detail.id}
+          reason={detail.audioRejectedReason}
+          canReplace={detail.canReplaceAudio}
+        />
+      ) : detail.status === 'failed' ? (
         <section
           role="alert"
           className="rounded-2xl border border-[#e8c5be] bg-[#f8e6e2] px-6 py-[22px]"

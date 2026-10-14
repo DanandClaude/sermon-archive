@@ -26,6 +26,7 @@ export type RowStatus =
   | 'transcribing'
   | 'analyzing'
   | 'needs_review'
+  | 'needs_audio'
   | 'failed'
   | 'error'
   | 'cancelled';
@@ -166,6 +167,7 @@ export const STATUS_LABEL: Record<RowStatus, string> = {
   transcribing: 'Transcribing',
   analyzing: 'Naming & summarizing',
   needs_review: 'Ready to review',
+  needs_audio: 'Needs full recording',
   failed: 'Needs attention',
   error: 'Upload failed',
   cancelled: 'Cancelled',

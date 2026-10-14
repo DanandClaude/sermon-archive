@@ -136,7 +136,8 @@ class Runner:
 
     def _clean(self, job: Job) -> None:
         original = self.conn.execute(
-            "SELECT id, storage_key, peaks_key FROM audio_assets WHERE sermon_id = %s AND kind = 'original'",
+            "SELECT id, storage_key, peaks_key FROM audio_assets WHERE sermon_id = %s "
+            "AND kind = 'original' AND set_aside_at IS NULL",
             (job.sermon_id,),
         ).fetchone()
         if original is None:
@@ -158,7 +159,9 @@ class Runner:
             )
             original_peaks_key = original["peaks_key"]
             if original_peaks is not None:
-                original_peaks_key = f"peaks/{job.sermon_id}/original.json"
+                # "original.json" for the first upload; a replacement recording gets its own name.
+                stem = Path(original["storage_key"]).stem
+                original_peaks_key = f"peaks/{job.sermon_id}/{stem}.json"
                 self.store.upload_bytes(
                     original_peaks_key, json.dumps(original_peaks).encode(), "application/json"
                 )
@@ -213,7 +216,7 @@ class Runner:
         for kind in wanted:
             row = self.conn.execute(
                 "SELECT storage_key FROM audio_assets WHERE sermon_id = %s AND kind = %s::audio_kind "
-                "ORDER BY created_at DESC LIMIT 1",
+                "AND set_aside_at IS NULL ORDER BY created_at DESC LIMIT 1",
                 (sermon_id, kind),
             ).fetchone()
             if row:

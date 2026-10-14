@@ -35,7 +35,7 @@ All checks are server-side. There must always be at least one admin.
 
 1. **Upload** (contributor): drag files in; optionally enter tape label data (date, scripture, speaker, box/batch). Resumable, direct-to-storage upload; multiple files at once; sides A/B may be separate files.
 2. **Process** (automatic): clean up → transcribe → analyze (name, categorize, summarize, scripture references). Contributor sees live progress in the queue.
-3. **Review** (contributor): listen (original vs cleaned), read transcript (low-confidence words flagged), fix title/date/passage/tags/summary/scripture list, then **Approve & file**.
+3. **Review** (contributor): listen (original vs cleaned), read transcript (low-confidence words flagged), fix title/date/passage/tags/summary/scripture list, then **Approve & file**. If the recording is incomplete or the wrong tape, the reviewer **Rejects the recording** with a reason instead: the file is set aside (kept forever, never processed again), the details entered are kept, and the sermon waits in `needs_audio` until the uploader or an admin uploads the full recording, which runs the pipeline again.
 4. **File** (automatic on approval): write outputs to the shared drive and the admin backup vault, verify checksums.
 5. **Publish** (admin, optional): send to YouTube and/or podcast per publishing rules.
 

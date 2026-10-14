@@ -35,6 +35,12 @@ When a sermon is ready, it appears under **Needs review**. Open it and check:
 
 **Save draft** keeps your changes without approving.
 
+**If the recording is incomplete or the wrong tape,** press **Reject recording** and say what's wrong (for
+example, "stops partway through the sermon"). The file is kept, not deleted, and everything you've entered
+stays. The sermon then shows **Needs full recording**: open it, choose **Choose the full recording**, and press
+**Upload**. It's processed again from the start and comes back to **Needs review**. An admin can do this for
+any sermon.
+
 ## 4. Approve
 
 Press **Approve & file**. The button tells you if anything required is missing, which is the date, the main

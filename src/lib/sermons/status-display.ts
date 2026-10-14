@@ -7,6 +7,7 @@ export const SERMON_STATUS_LABEL: Record<SermonStatus, string> = {
   transcribing: 'Transcribing',
   analyzing: 'Naming & summarizing',
   needs_review: 'Needs review',
+  needs_audio: 'Needs full recording',
   approved: 'Approved',
   filing: 'Filing',
   filed: 'Filed',
@@ -17,6 +18,6 @@ export const SERMON_STATUS_LABEL: Record<SermonStatus, string> = {
 export function statusTone(status: SermonStatus): 'amber' | 'spruce' | 'danger' | 'neutral' {
   if (status === 'needs_review') return 'amber';
   if (status === 'approved' || status === 'filing' || status === 'filed') return 'spruce';
-  if (status === 'failed') return 'danger';
+  if (status === 'failed' || status === 'needs_audio') return 'danger';
   return 'neutral';
 }

@@ -21,6 +21,7 @@ const CHIP: Record<RowStatus, string> = {
   transcribing: 'bg-amber-tint text-amber-text',
   analyzing: 'bg-amber-tint text-amber-text',
   needs_review: 'bg-spruce-tint text-spruce',
+  needs_audio: 'bg-[#f8e6e2] text-danger',
   failed: 'bg-[#f8e6e2] text-danger',
   error: 'bg-[#f8e6e2] text-danger',
   cancelled: 'bg-chip text-muted',
@@ -45,6 +46,8 @@ function detail(row: QueueRow): string | undefined {
       return 'Naming, summarizing and finding the scripture references';
     case 'failed':
       return 'Something went wrong while processing.';
+    case 'needs_audio':
+      return 'The recording was rejected. Open it to upload the full recording.';
     default:
       return undefined;
   }
@@ -161,7 +164,7 @@ export function QueuePanel({
                 </div>
                 {text ? (
                   <div
-                    className={`text-[12.5px] ${row.status === 'error' || row.status === 'failed' ? 'font-semibold text-danger' : 'text-muted'}`}
+                    className={`text-[12.5px] ${row.status === 'error' || row.status === 'failed' || row.status === 'needs_audio' ? 'font-semibold text-danger' : 'text-muted'}`}
                   >
                     {text}
                   </div>

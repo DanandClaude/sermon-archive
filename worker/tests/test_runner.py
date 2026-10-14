@@ -401,3 +401,40 @@ class TestLoop:
         make_runner(conn, config, store).run_forever(should_stop, sleep=lambda s: None)
         row = conn.execute("SELECT * FROM jobs").fetchone()
         assert "stopped responding" in (row["last_error"] or "")
+
+
+class TestReplacedRecording:
+    """A reviewer rejected the first recording (it was cut short) and a full one was uploaded."""
+
+    def test_only_the_replacement_is_processed_and_the_rejected_one_is_left_alone(
+        self, conn, config, store, hummy_wav
+    ):
+        sermon = make_sermon(conn, "uploaded")
+        rejected = add_original(conn, store, sermon, hummy_wav, name="original.wav")
+        conn.execute(
+            "INSERT INTO audio_assets (sermon_id, kind, storage_key, sha256, bytes, mime, "
+            "original_filename) VALUES (%s, 'cleaned', %s, 'x', 1, 'audio/mpeg', 'cleaned.mp3')",
+            (sermon, f"cleaned/{sermon}/old.mp3"),
+        )
+        conn.execute("UPDATE audio_assets SET set_aside_at = now() WHERE sermon_id = %s", (sermon,))
+        full = add_original(conn, store, sermon, hummy_wav, name="original-full.wav")
+        add_job(conn, sermon, "clean")
+        spy = SpyStore(store)
+
+        run_until_idle(make_runner(conn, config, spy))
+
+        # Cleaned and transcribed from the full recording, never the rejected one or its copy.
+        assert rejected not in spy.downloads
+        assert f"cleaned/{sermon}/old.mp3" not in spy.downloads
+        assert spy.downloads[0] == full
+        assert spy.downloads[1] == full  # transcribes the original by default
+        # The replacement's peaks get their own name, so the rejected one's are kept.
+        new = conn.execute(
+            "SELECT peaks_key FROM audio_assets WHERE storage_key = %s", (full,)
+        ).fetchone()
+        assert new["peaks_key"] == f"peaks/{sermon}/original-full.json"
+        old = conn.execute(
+            "SELECT peaks_key, set_aside_at FROM audio_assets WHERE storage_key = %s", (rejected,)
+        ).fetchone()
+        assert old["peaks_key"] is None and old["set_aside_at"] is not None
+        assert sermon_row(conn, sermon)["status"] == "needs_review"

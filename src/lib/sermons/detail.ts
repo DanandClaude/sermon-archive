@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '@/db/client';
 import {
@@ -17,6 +17,8 @@ import {
   assertCan,
   canApproveSermon,
   canEditSermon,
+  canRejectAudio,
+  canReplaceAudio,
   canRetrySermon,
   canViewSermon,
   type Actor,
@@ -67,6 +69,9 @@ export type SermonDetail = {
   createdAt: Date;
   failedStage: string | null;
   lastError: string | null;
+  /** Why a reviewer rejected the recording, while the sermon waits for a full one. */
+  audioRejectedReason: string | null;
+  /** The current original. A rejected recording is kept in storage but not shown. */
   original: AssetSummary | null;
   /** The newest cleaned copy. */
   cleaned: AssetSummary | null;
@@ -90,6 +95,10 @@ export type SermonDetail = {
   /** What still blocks approval, keyed by field. */
   approvalProblems: Record<string, string>;
   canRetry: boolean;
+  /** Can set the recording aside as incomplete or wrong. */
+  canRejectAudio: boolean;
+  /** Can upload the full recording in place of a rejected one. */
+  canReplaceAudio: boolean;
   /** Raw job history, for admins only: it can contain technical error text. */
   jobs: Job[] | null;
 };
@@ -119,7 +128,7 @@ export async function getSermonDetail(
     .from(sermons)
     .innerJoin(users, eq(users.id, sermons.contributorId))
     .leftJoin(approver, eq(approver.id, sermons.approvedBy))
-    .leftJoin(uploads, eq(uploads.sermonId, sermons.id))
+    .leftJoin(uploads, and(eq(uploads.sermonId, sermons.id), eq(uploads.replacesAudio, false)))
     .where(eq(sermons.id, sermonId));
   if (!row) return null;
   const { sermon } = row;
@@ -133,14 +142,20 @@ export async function getSermonDetail(
   const assets = await db
     .select()
     .from(audioAssets)
-    .where(eq(audioAssets.sermonId, sermonId))
+    .where(and(eq(audioAssets.sermonId, sermonId), isNull(audioAssets.setAsideAt)))
     .orderBy(desc(audioAssets.createdAt));
-  const [transcript] = await db
-    .select()
-    .from(transcripts)
-    .where(eq(transcripts.sermonId, sermonId))
-    .orderBy(desc(transcripts.version))
-    .limit(1);
+  const original = assets.find((a) => a.kind === 'original');
+  // A transcript belongs to the recording it was made from; one of a rejected recording is not shown.
+  const [transcript] = original
+    ? await db
+        .select()
+        .from(transcripts)
+        .where(
+          and(eq(transcripts.sermonId, sermonId), gte(transcripts.createdAt, original.createdAt)),
+        )
+        .orderBy(desc(transcripts.version))
+        .limit(1)
+    : [];
   const refs = await db
     .select()
     .from(scriptureRefs)
@@ -177,7 +192,7 @@ export async function getSermonDetail(
   return {
     id: sermon.id,
     title: sermon.title,
-    filename: row.filename,
+    filename: original?.originalFilename ?? row.filename,
     status: sermon.status,
     recordedOn: sermon.recordedOn,
     speaker: sermon.speaker,
@@ -190,7 +205,8 @@ export async function getSermonDetail(
     createdAt: sermon.createdAt,
     failedStage: sermon.failedStage,
     lastError: sermon.lastError,
-    original: summary(assets.find((a) => a.kind === 'original')),
+    audioRejectedReason: sermon.audioRejectedReason,
+    original: summary(original),
     cleaned: summary(assets.find((a) => a.kind === 'cleaned')),
     transcript: transcript
       ? {
@@ -226,6 +242,8 @@ export async function getSermonDetail(
     canRegenerate: editable && sermon.status === 'needs_review',
     approvalProblems: approvalProblems(sermon),
     canRetry: canRetrySermon(actor, facts),
+    canRejectAudio: canRejectAudio(actor, facts),
+    canReplaceAudio: canReplaceAudio(actor, facts),
     jobs: jobRows,
   };
 }
