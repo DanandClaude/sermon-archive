@@ -12,7 +12,7 @@ Status: draft handoff from the design phase. Sample names, sermons and data in t
 4. File approved sermons to a shared drive (everyone can browse) **and** an admin-only backup vault.
 5. Let admins publish approved sermons to YouTube and/or a podcast feed.
 
-Non-goals (for now): live recording, video sermons, multi-church tenancy, public website, editing audio by hand, non-English sermons.
+Non-goals (for now): live recording, video sermons, multi-church tenancy, a general public website (the online library in §8 is the one public page set; owner, 2026-10-13), editing audio by hand, non-English sermons.
 
 ## 2. Roles and permissions
 
@@ -131,6 +131,11 @@ Publishing rules (settings): only admins can publish; only Approved sermons are 
 - Option A (simplest, recommended for MVP): the app generates a standards-compliant RSS 2.0 feed (iTunes tags, and `podcast:transcript` for the SRT) from published sermons and serves audio at stable public URLs. The admin submits the feed URL to podcast directories.
 - Option B: connect to a podcast host's API to create episodes. Host APIs differ; build one adapter for the host the owner actually uses.
 - Note: podcast feeds have no true "unlisted"; publishing the episode makes the audio public. The UI must warn before the first publish to a podcast channel.
+
+**Online library** (owner, 2026-10-13)
+- Public listening pages served by the app at `/listen`: a searchable list of sermons and one page per sermon with a player, summary, passages (tap to jump) and transcript. No sign-in, by the owner's choice.
+- An admin publishes an approved sermon to it like any channel; it goes live at once and leaves at once on unpublish. The whole library can be turned off from Connections.
+- Audio is the cleaned recording, streamed from the private storage bucket (e.g. Cloudflare R2) through a short-lived signed link. Only sermons published to the library are reachable; entries are addressed by publication id.
 
 Publications are tracked per sermon per channel (`draft → queued → published → failed`), with the remote URL/ID. Unpublish/remove is admin-only.
 

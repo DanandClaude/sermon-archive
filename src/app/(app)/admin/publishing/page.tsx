@@ -114,7 +114,7 @@ export default async function PublishingPage() {
       {busy ? <AutoRefresh everyMs={4000} /> : null}
       <PageHeader
         title="Publishing"
-        description="Sermons on their way to YouTube and the podcast feed, and what’s already out. Publish a sermon from its page."
+        description="Sermons on their way to YouTube, the podcast feed and the online library, and what’s already out. Publish a sermon from its page."
         aside={<AdminOnlyBadge />}
       />
       {rows.length === 0 ? (

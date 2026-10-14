@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import type { LibrarySettings } from '@/lib/distribution/channels';
 import type { PodcastSettings } from '@/lib/distribution/feed';
 import type { Visibility } from '@/lib/distribution/states';
 import {
   connectTestYouTubeAction,
   disconnectChannelAction,
+  saveLibrarySettingsAction,
   savePodcastSettingsAction,
   saveYouTubeSettingsAction,
   type StorageActionResult,
@@ -250,6 +252,70 @@ export function PodcastControls({
           kind="podcast"
           label="Turn off the feed"
           prompt="Turn off the podcast feed? Podcast apps stop getting new episodes and the episode links stop working. Turning it back on restores them."
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function LibraryControls({
+  connected,
+  settings,
+}: {
+  connected: boolean;
+  settings: LibrarySettings;
+}) {
+  const { pending, run, note, fieldErrors } = useAction();
+  const [form, setForm] = useState(settings);
+  return (
+    <div className="mt-2 flex flex-col gap-3">
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(() => saveLibrarySettingsAction(form));
+        }}
+      >
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+          Library name
+          <input
+            type="text"
+            className={input}
+            value={form.title}
+            aria-invalid={!!fieldErrors.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+          {fieldErrors.title ? (
+            <span className="font-normal text-danger">{fieldErrors.title}</span>
+          ) : null}
+        </label>
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+          Welcome line
+          <textarea
+            rows={3}
+            className={`${input} h-auto py-2.5`}
+            value={form.description}
+            aria-invalid={!!fieldErrors.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+          {fieldErrors.description ? (
+            <span className="font-normal text-danger">{fieldErrors.description}</span>
+          ) : (
+            <span className="font-normal text-muted">Shown at the top of the library page.</span>
+          )}
+        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" disabled={pending} className={connected ? secondary : primary}>
+            {connected ? 'Save' : 'Turn on the library'}
+          </button>
+          {note}
+        </div>
+      </form>
+      {connected ? (
+        <Disconnect
+          kind="library"
+          label="Turn off the library"
+          prompt="Turn off the online library? Its pages and audio links stop working for everyone. Turning it back on restores every sermon in it."
         />
       ) : null}
     </div>

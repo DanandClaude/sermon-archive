@@ -15,6 +15,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Pages only. API routes answer 401 themselves; sign-in and the dev outbox must work signed out,
-  // and the podcast feed and its episodes are public (they list only what an admin published).
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|sign-in|dev/|podcast/).*)'],
+  // and the podcast feed and the online library are public (they show only what an admin published).
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|sign-in|dev/|podcast/|listen).*)'],
 };

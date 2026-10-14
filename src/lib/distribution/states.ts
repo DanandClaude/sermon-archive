@@ -1,4 +1,4 @@
-export const CHANNEL_KINDS = ['youtube', 'podcast'] as const;
+export const CHANNEL_KINDS = ['youtube', 'podcast', 'library'] as const;
 export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 
 /**
@@ -10,8 +10,8 @@ export type ChannelKind = (typeof CHANNEL_KINDS)[number];
  * - `removing`: an admin asked to unpublish and the worker is on it (YouTube).
  * - `removed`: unpublished. The YouTube video is private; the podcast episode is out of the feed.
  *
- * Podcast episodes need no worker: the app serves the feed, so they go straight to `published`
- * and straight to `removed`.
+ * Podcast episodes and the online library need no worker: the app serves both, so they go
+ * straight to `published` and straight to `removed`.
  */
 export const PUBLICATION_STATES = [
   'queued',
@@ -25,7 +25,7 @@ export type PublicationState = (typeof PUBLICATION_STATES)[number];
 
 /**
  * YouTube's privacy settings. A podcast feed has no unlisted or private (SPEC §8), so its episodes
- * are always `public`.
+ * are always `public`, as is everything in the online library.
  */
 export const VISIBILITIES = ['private', 'unlisted', 'public'] as const;
 export type Visibility = (typeof VISIBILITIES)[number];
@@ -40,10 +40,14 @@ export const MAX_DAILY_UPLOADS = 50;
 export const CHANNEL_LABEL: Record<ChannelKind, string> = {
   youtube: 'YouTube',
   podcast: 'Podcast feed',
+  library: 'Online library',
 };
 
 export const isChannelKind = (value: unknown): value is ChannelKind =>
-  value === 'youtube' || value === 'podcast';
+  (CHANNEL_KINDS as readonly unknown[]).includes(value);
+
+/** Channels this app serves itself: no account, no worker, always public. */
+export const isAppServed = (kind: ChannelKind) => kind === 'podcast' || kind === 'library';
 
 export const isVisibility = (value: unknown): value is Visibility =>
   (VISIBILITIES as readonly unknown[]).includes(value);

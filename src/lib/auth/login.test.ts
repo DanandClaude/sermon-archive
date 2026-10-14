@@ -5,6 +5,7 @@ import { loginTokens, users } from '@/db/schema';
 import { insertUser, openTestDb, resetTables } from '../../../tests/support/db';
 import {
   consumeLoginToken,
+  hasNoUsers,
   INVITE_TOKEN_TTL_MS,
   issueLoginToken,
   LOGIN_TOKEN_TTL_MS,
@@ -157,5 +158,13 @@ describe('consumeLoginToken', () => {
     expect(await consumeLoginToken(db, second, now)).toBeNull();
     const [row] = await db.select().from(users).where(eq(users.id, user.id));
     expect(row.lastSignInAt).toEqual(now);
+  });
+});
+
+describe('hasNoUsers', () => {
+  it('is true until the first person is added, even if they are later disabled', async () => {
+    expect(await hasNoUsers(db)).toBe(true);
+    await insertUser(db, 'admin', { disabledAt: new Date() });
+    expect(await hasNoUsers(db)).toBe(false);
   });
 });

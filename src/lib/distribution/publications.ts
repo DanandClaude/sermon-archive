@@ -21,7 +21,9 @@ import { toText, type Segment } from '@/lib/transcripts/render';
 import { connectedChannels, DistributionError, readYouTubeSettings } from './channels';
 import { youtubeDescription, youtubeTitle, type NotesInput } from './show-notes';
 import {
+  CHANNEL_KINDS,
   CHANNEL_LABEL,
+  isAppServed,
   isChannelKind,
   isVisibility,
   type ChannelKind,
@@ -208,7 +210,7 @@ export async function getPublishPreview(
       passage: primary ? formatReference(primary) : null,
       date: coverDate(sermon.recordedOn),
     },
-    channels: (['youtube', 'podcast'] as const).map((kind) => ({
+    channels: CHANNEL_KINDS.map((kind) => ({
       kind,
       connected: channels.has(kind),
       defaultVisibility:
@@ -231,7 +233,7 @@ export type PublishRequest = {
 
 /**
  * Publishes an approved sermon to one channel. YouTube is queued for the worker, which renders and
- * uploads the video; the podcast episode is live in the feed at once. Admins only.
+ * uploads the video; a podcast episode or library entry is live at once. Admins only.
  */
 export async function requestPublish(
   db: Db,
@@ -241,16 +243,18 @@ export async function requestPublish(
 ): Promise<PublicationSummary> {
   assertCan(actor.role, 'sermon.publish');
   if (!isChannelKind(input.channel))
-    throw new DistributionError('invalid', 'Choose YouTube or the podcast feed.');
+    throw new DistributionError(
+      'invalid',
+      'Choose YouTube, the podcast feed or the online library.',
+    );
   const kind = input.channel;
-  const visibility: Visibility =
-    kind === 'podcast'
-      ? 'public'
-      : isVisibility(input.visibility)
-        ? input.visibility
-        : (() => {
-            throw new DistributionError('invalid', 'Choose private, unlisted or public.');
-          })();
+  const visibility: Visibility = isAppServed(kind)
+    ? 'public'
+    : isVisibility(input.visibility)
+      ? input.visibility
+      : (() => {
+          throw new DistributionError('invalid', 'Choose private, unlisted or public.');
+        })();
 
   return db.transaction(async (tx) => {
     await lockPublishable(tx, actor, sermonId);
@@ -258,7 +262,9 @@ export async function requestPublish(
     if (!channel)
       throw new DistributionError(
         'conflict',
-        `Connect ${kind === 'youtube' ? 'YouTube' : 'the podcast feed'} on the Connections page first.`,
+        kind === 'youtube'
+          ? 'Connect YouTube on the Connections page first.'
+          : `Turn on the ${kind === 'podcast' ? 'podcast feed' : 'online library'} on the Connections page first.`,
       );
     const [cleaned] = await tx
       .select({ id: audioAssets.id })
@@ -303,7 +309,7 @@ export async function requestPublish(
     const title = youtubeTitle(notes!);
     const description = kind === 'youtube' ? youtubeDescription(notes!) : '';
     const now = new Date();
-    const live = kind === 'podcast';
+    const live = isAppServed(kind);
     const values = {
       state: (live ? 'published' : 'queued') as PublicationState,
       visibility,
@@ -368,7 +374,7 @@ async function lockPublication(tx: Tx, actor: Actor, publicationId: string) {
 
 /**
  * Unpublishes. YouTube: the worker makes the video private (it is never deleted, so this can be
- * undone). Podcast: the episode leaves the feed at once and its audio link stops working.
+ * undone). Podcast and library: the sermon leaves at once and its audio link stops working.
  */
 export async function requestUnpublish(
   db: Db,
@@ -387,7 +393,7 @@ export async function requestUnpublish(
       throw new DistributionError('conflict', 'This has already been taken down.');
     const now = new Date();
     // Nothing on YouTube yet (still queued, or failed before the upload): just stop.
-    const immediate = kind === 'podcast' || !p.remoteId;
+    const immediate = isAppServed(kind) || !p.remoteId;
     const [row] = await tx
       .update(publications)
       .set({

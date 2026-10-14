@@ -8,11 +8,12 @@ import { listTargets, type TargetStatus } from '@/lib/storage/connections';
 import { latestVerification, listProblems, waitingToFile } from '@/lib/storage/filing';
 import { isRealMode } from '@/lib/storage/google-client';
 import { listChannels, type ChannelStatus } from '@/lib/distribution/channels';
+import { LIBRARY_PATH } from '@/lib/distribution/library';
 import { FEED_PATH } from '@/lib/distribution/podcast';
 import { getEnv } from '@/lib/env';
 import { getSettings } from '@/lib/settings';
 import { CheckButtons, ConnectButtons } from './ConnectionButtons';
-import { CopyLink, PodcastControls, YouTubeControls } from './DistributionForms';
+import { CopyLink, LibraryControls, PodcastControls, YouTubeControls } from './DistributionForms';
 
 export const metadata = { title: 'Connections' };
 
@@ -69,11 +70,11 @@ function ChannelCard({
       <div className="flex items-center justify-between gap-3">
         <h3 className="m-0 text-base font-semibold">{title}</h3>
         {channel.connected ? (
-          <Pill tone="ok">{channel.kind === 'podcast' ? 'On' : 'Connected'}</Pill>
+          <Pill tone="ok">{channel.kind === 'youtube' ? 'Connected' : 'On'}</Pill>
         ) : channel.disconnectedAt ? (
-          <Pill tone="warn">{channel.kind === 'podcast' ? 'Off' : 'Disconnected'}</Pill>
+          <Pill tone="warn">{channel.kind === 'youtube' ? 'Disconnected' : 'Off'}</Pill>
         ) : (
-          <Pill tone="none">{channel.kind === 'podcast' ? 'Off' : 'Not connected'}</Pill>
+          <Pill tone="none">{channel.kind === 'youtube' ? 'Not connected' : 'Off'}</Pill>
         )}
       </div>
       <div className="mt-3.5">{children}</div>
@@ -179,7 +180,9 @@ export default async function ConnectionsPage({
   ]);
   const youtube = channels.find((c) => c.kind === 'youtube')!;
   const podcast = channels.find((c) => c.kind === 'podcast')!;
+  const library = channels.find((c) => c.kind === 'library')!;
   const feedUrl = `${getEnv().APP_URL}${FEED_PATH}`;
+  const libraryUrl = `${getEnv().APP_URL}${LIBRARY_PATH}`;
   const realMode = isRealMode();
   const bothConnected = targets.every((t) => t.connected);
   const checking = run?.state === 'queued' || run?.state === 'running';
@@ -346,12 +349,25 @@ export default async function ConnectionsPage({
             ) : null}
             <PodcastControls connected={podcast.connected} settings={podcast.podcast!} />
           </ChannelCard>
+          <ChannelCard channel={library} title="Online library">
+            <Row name="Sermons">{library.counts.published}</Row>
+            {library.connected ? (
+              <div className="border-t border-chip py-2.5">
+                <p className="mb-2 mt-0 text-sm text-faint">
+                  Library link, to share or put on the church website
+                </p>
+                <CopyLink url={libraryUrl} />
+              </div>
+            ) : null}
+            <LibraryControls connected={library.connected} settings={library.library!} />
+          </ChannelCard>
         </div>
         <ul className="mb-0 mt-3 flex list-disc flex-col gap-1 pl-5 text-[13px] text-muted">
           <li>Only admins can publish, and only approved sermons.</li>
           <li>Nothing is published automatically. You choose each sermon and where it goes.</li>
           <li>Unpublishing makes a YouTube video private. Nothing is ever deleted from YouTube.</li>
           <li>Podcast episodes are public to anyone with the feed link.</li>
+          <li>The online library is public: anyone can listen, with no sign-in.</li>
         </ul>
       </section>
     </>
